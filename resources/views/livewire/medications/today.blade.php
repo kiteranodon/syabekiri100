@@ -303,37 +303,6 @@ $save = function () {
                             </button>
                         </div>
 
-                        <!-- よく使用する薬のクイック追加 -->
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-700 mb-3">よく使用する薬（クリックで追加）</h4>
-                            @php
-                                $commonMedicines = [
-                                    ['name' => 'リスペリドン', 'timing' => 'morning'],
-                                    ['name' => 'リスペリドン', 'timing' => 'evening'],
-                                    ['name' => 'セルトラリン', 'timing' => 'morning'],
-                                    ['name' => 'ロラゼパム', 'timing' => 'as_needed'],
-                                    ['name' => 'メラトニン', 'timing' => 'bedtime'],
-                                    ['name' => 'オメプラゾール', 'timing' => 'morning'],
-                                ];
-
-                                $timingLabels = [
-                                    'morning' => '朝',
-                                    'afternoon' => '昼',
-                                    'evening' => '晩',
-                                    'bedtime' => '就寝前',
-                                    'as_needed' => '頓服',
-                                ];
-                            @endphp
-                            <div class="flex flex-wrap gap-2">
-                                @foreach ($commonMedicines as $medicine)
-                                    <button type="button"
-                                        wire:click="addNewMedication('{{ $medicine['name'] }}', '{{ $medicine['timing'] }}')"
-                                        class="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors">
-                                        {{ $medicine['name'] }}（{{ $timingLabels[$medicine['timing']] }}）
-                                    </button>
-                                @endforeach
-                            </div>
-                        </div>
 
                         <!-- ボタン -->
                         <div class="flex justify-end space-x-3">

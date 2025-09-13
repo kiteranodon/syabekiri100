@@ -1,17 +1,16 @@
 <?php
 
-use function Livewire\Volt\{computed};
+use function Livewire\Volt\{state, computed};
 use App\Models\MedicationLog;
 use App\Models\DailyLog;
 
-$medicationLogs = computed(function () {
-    return MedicationLog::whereHas('dailyLog', function ($query) {
-        $query->where('user_id', auth()->id());
-    })
-        ->with('dailyLog')
-        ->orderBy('created_at', 'desc')
-        ->paginate(20);
-});
+state([
+    'showAddModal' => false,
+    'showDeleteModal' => false,
+    'newMedicineName' => '',
+    'newMedicineTiming' => '',
+    'selectedMedicationId' => null,
+]);
 
 $todayMedications = computed(function () {
     $todayDailyLog = DailyLog::where('user_id', auth()->id())
@@ -77,6 +76,59 @@ $updateMedicationStatus = function ($medicationId, $taken) {
         ->update(['taken' => $taken]);
 };
 
+// 薬の追加
+$addMedication = function () {
+    if (empty($this->newMedicineName) || empty($this->newMedicineTiming)) {
+        session()->flash('error', '薬名とタイミングを入力してください。');
+        return;
+    }
+
+    // 今日の日次ログを取得または作成
+    $dailyLog = DailyLog::firstOrCreate([
+        'user_id' => auth()->id(),
+        'date' => now()->toDateString(),
+    ]);
+
+    // 薬を追加
+    MedicationLog::create([
+        'daily_log_id' => $dailyLog->id,
+        'medicine_name' => $this->newMedicineName,
+        'timing' => $this->newMedicineTiming,
+        'taken' => false,
+    ]);
+
+    // フォームをリセット
+    $this->newMedicineName = '';
+    $this->newMedicineTiming = '';
+    $this->showAddModal = false;
+
+    session()->flash('success', '薬を追加しました。');
+};
+
+// 薬の削除
+$deleteMedication = function () {
+    if (!$this->selectedMedicationId) {
+        session()->flash('error', '削除する薬を選択してください。');
+        return;
+    }
+
+    MedicationLog::where('id', $this->selectedMedicationId)
+        ->where('daily_log_id', function ($query) {
+            $query
+                ->select('id')
+                ->from('daily_logs')
+                ->where('user_id', auth()->id())
+                ->where('date', now()->toDateString())
+                ->limit(1);
+        })
+        ->delete();
+
+    $this->selectedMedicationId = null;
+    $this->showDeleteModal = false;
+
+    session()->flash('success', '薬を削除しました。');
+};
+
 ?>
 
 <div>
@@ -121,9 +173,28 @@ $updateMedicationStatus = function ($medicationId, $taken) {
                 <div class="p-6 bg-white border-b border-gray-200">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-lg font-medium text-gray-900">今日の服薬状況 - {{ now()->format('Y年m月d日 (D)') }}</h3>
-                        <a href="{{ route('medications.today') }}" class="text-sm text-green-600 hover:text-green-800">
-                            編集する →
-                        </a>
+                        <div class="flex items-center space-x-3">
+                            <button wire:click="$set('showAddModal', true)"
+                                class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                薬の追加
+                            </button>
+                            <button wire:click="$set('showDeleteModal', true)"
+                                class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                薬の削除
+                            </button>
+                            <a href="{{ route('medications.history') }}"
+                                class="text-sm text-purple-600 hover:text-purple-800">
+                                服用履歴 →
+                            </a>
+                        </div>
                     </div>
 
                     @if ($this->todayMedications->count() > 0)
@@ -304,88 +375,101 @@ $updateMedicationStatus = function ($medicationId, $taken) {
                 </div>
             </div>
 
-            <!-- 服薬記録一覧 -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 bg-white border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">服薬記録履歴</h3>
+        </div>
+    </div>
 
-                    @if ($this->medicationLogs->count() > 0)
-                        <div class="space-y-4">
-                            @foreach ($this->medicationLogs->groupBy(fn($log) => $log->dailyLog->date->format('Y-m-d')) as $date => $logs)
-                                <div class="border border-gray-200 rounded-lg p-4">
-                                    <h4 class="text-lg font-medium text-gray-900 mb-3">
-                                        {{ \Carbon\Carbon::parse($date)->format('Y年m月d日 (D)') }}
-                                    </h4>
+    <!-- 薬の追加モーダル -->
+    @if ($showAddModal)
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">薬の追加</h3>
 
-                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        @foreach ($logs as $log)
-                                            <div
-                                                class="flex items-center justify-between p-3 
-                                                {{ $log->taken ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200' }} 
-                                                rounded">
-                                                <div class="flex items-center">
-                                                    @if ($log->taken)
-                                                        <svg class="w-5 h-5 text-green-600 mr-2" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                    @else
-                                                        <svg class="w-5 h-5 text-red-600 mr-2" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    @endif
-                                                    <div>
-                                                        <span
-                                                            class="font-medium {{ $log->taken ? 'text-green-800' : 'text-red-800' }}">
-                                                            {{ $log->medicine_name }}
-                                                        </span>
-                                                        @if ($log->timing)
-                                                            <div class="mt-1">
-                                                                <span
-                                                                    class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
-                                                                    {{ $log->timing_display }}
-                                                                </span>
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                </div>
+                <div class="space-y-4">
+                    <!-- 薬名入力 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">薬名</label>
+                        <input type="text" wire:model="newMedicineName" placeholder="薬名を入力してください"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                    </div>
 
-                                                <span
-                                                    class="text-xs {{ $log->taken ? 'text-green-600' : 'text-red-600' }}">
-                                                    {{ $log->taken ? '服薬済み' : '未服薬' }}
-                                                </span>
-                                            </div>
-                                        @endforeach
+                    <!-- タイミング選択 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">タイミング</label>
+                        <select wire:model="newMedicineTiming"
+                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
+                            <option value="">タイミングを選択</option>
+                            <option value="morning">朝</option>
+                            <option value="afternoon">昼</option>
+                            <option value="evening">晩</option>
+                            <option value="bedtime">就寝前</option>
+                            <option value="as_needed">頓服</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- ボタン -->
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button wire:click="$set('showAddModal', false)"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    <button wire:click="addMedication"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        追加
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <!-- 薬の削除モーダル -->
+    @if ($showDeleteModal)
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">薬の削除</h3>
+
+                @if ($this->todayMedications->count() > 0)
+                    <div class="space-y-4">
+                        <p class="text-sm text-gray-600">削除する薬を選択してください：</p>
+
+                        <!-- 薬選択 -->
+                        <div class="space-y-2">
+                            @foreach ($this->todayMedications as $medication)
+                                <label
+                                    class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="radio" wire:model="selectedMedicationId"
+                                        value="{{ $medication->id }}"
+                                        class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300">
+                                    <div class="ml-3">
+                                        <span
+                                            class="font-medium text-gray-900">{{ $medication->medicine_name }}</span>
+                                        <span
+                                            class="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
+                                            {{ $medication->timing_display }}
+                                        </span>
                                     </div>
-                                </div>
+                                </label>
                             @endforeach
                         </div>
+                    </div>
+                @else
+                    <p class="text-sm text-gray-600">今日の薬がありません。</p>
+                @endif
 
-                        <div class="mt-6">
-                            {{ $this->medicationLogs->links() }}
-                        </div>
-                    @else
-                        <div class="text-center py-12">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                            </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">服薬記録がありません</h3>
-                            <p class="mt-1 text-sm text-gray-500">最初の服薬記録を作成してみましょう。</p>
-                            <div class="mt-6">
-                                <a href="{{ route('medications.create') }}"
-                                    class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
-                                    新規作成
-                                </a>
-                            </div>
-                        </div>
+                <!-- ボタン -->
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button wire:click="$set('showDeleteModal', false)"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                        キャンセル
+                    </button>
+                    @if ($this->todayMedications->count() > 0)
+                        <button wire:click="deleteMedication"
+                            class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
+                            削除
+                        </button>
                     @endif
                 </div>
             </div>
         </div>
-    </div>
+    @endif
 </div>

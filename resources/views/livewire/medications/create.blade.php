@@ -131,55 +131,14 @@ $save = function () {
                         <div>
                             <h3 class="text-lg font-medium text-gray-900 mb-4">薬の追加</h3>
                             <p class="text-sm text-gray-600 mb-6">
-                                よく使用する薬から選択するか、下のフォームで薬名とタイミングを指定してください。
+                                下のフォームで薬名とタイミングを指定してください。
                                 同じ薬でも時間帯ごとに独立して管理されます。
                             </p>
 
-                            <!-- よく使用する薬のクイック追加 -->
-                            <div class="mb-6">
-                                <h4 class="text-sm font-medium text-gray-700 mb-3">よく使用する薬（クリックで追加）</h4>
-                                @php
-                                    $commonMedicines = [
-                                        'リスペリドン' => ['morning', 'evening'],
-                                        'セルトラリン' => ['morning'],
-                                        'ロラゼパム' => ['as_needed'],
-                                        'メラトニン' => ['bedtime'],
-                                        'オメプラゾール' => ['morning', 'afternoon'],
-                                        'エスシタロプラム' => ['morning'],
-                                        'アルプラゾラム' => ['as_needed'],
-                                        'トラゾドン' => ['bedtime'],
-                                    ];
 
-                                    $timingLabels = [
-                                        'morning' => '朝',
-                                        'afternoon' => '昼',
-                                        'evening' => '晩',
-                                        'bedtime' => '就寝前',
-                                        'as_needed' => '頓服',
-                                    ];
-                                @endphp
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    @foreach ($commonMedicines as $medicineName => $timings)
-                                        <div class="border border-gray-200 rounded-lg p-3">
-                                            <h5 class="font-medium text-gray-900 mb-2">{{ $medicineName }}</h5>
-                                            <div class="flex flex-wrap gap-2">
-                                                @foreach ($timings as $timing)
-                                                    <button type="button"
-                                                        wire:click="addMedicationTiming('{{ $medicineName }}', '{{ $timing }}')"
-                                                        class="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors">
-                                                        {{ $timingLabels[$timing] }}
-                                                    </button>
-                                                @endforeach
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-
-                            <!-- カスタム薬追加フォーム -->
-                            <div class="border-t pt-6">
-                                <h4 class="text-sm font-medium text-gray-700 mb-3">カスタム薬追加</h4>
+                            <!-- 薬追加フォーム -->
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-700 mb-3">薬の追加</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                     <input type="text" wire:model.defer="customMedicineName" placeholder="薬名を入力"
                                         class="rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm">
