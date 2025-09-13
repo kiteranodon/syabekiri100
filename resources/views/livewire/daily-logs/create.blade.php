@@ -70,23 +70,24 @@ $save = function () {
                             <label class="block text-sm font-medium text-gray-700 mb-3">
                                 気分スコア（1〜5）
                             </label>
-                            <div class="flex space-x-4">
+                            <div class="flex flex-wrap gap-4">
                                 @for ($i = 1; $i <= 5; $i++)
-                                    <label class="flex items-center">
+                                    <label class="flex items-center cursor-pointer">
                                         <input type="radio" wire:model="mood_score" value="{{ $i }}"
                                             class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
-                                        <span class="ml-2 text-sm text-gray-700">
-                                            {{ $i }}
+                                        <span class="ml-2 text-sm text-gray-700 flex items-center">
+                                            <x-mood-icon :score="$i" size="lg" />
+                                            <span class="ml-1">{{ $i }}</span>
                                             @if ($i == 1)
-                                                (とても悪い)
+                                                <span class="ml-1">(とても悪い)</span>
                                             @elseif($i == 2)
-                                                (悪い)
+                                                <span class="ml-1">(悪い)</span>
                                             @elseif($i == 3)
-                                                (普通)
+                                                <span class="ml-1">(普通)</span>
                                             @elseif($i == 4)
-                                                (良い)
+                                                <span class="ml-1">(良い)</span>
                                             @elseif($i == 5)
-                                                (とても良い)
+                                                <span class="ml-1">(とても良い)</span>
                                             @endif
                                         </span>
                                     </label>

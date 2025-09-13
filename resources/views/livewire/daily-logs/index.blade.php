@@ -60,7 +60,8 @@ $logs = computed(function () {
                                                         @elseif($log->mood_score == 3) bg-yellow-100 text-yellow-800
                                                         @else bg-green-100 text-green-800 @endif
                                                     ">
-                                                        気分: {{ $log->mood_score }}/5
+                                                        <x-mood-icon :score="$log->mood_score" size="sm" />
+                                                        <span class="ml-1">気分: {{ $log->mood_score }}/5</span>
                                                     </span>
                                                 @endif
                                             </div>

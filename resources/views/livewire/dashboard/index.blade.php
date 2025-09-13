@@ -77,8 +77,13 @@ $avgSleepFormatted = computed(function () {
                                     </div>
                                     <div class="ml-3">
                                         <p class="text-sm font-medium text-blue-900">気分スコア</p>
-                                        <p class="text-2xl font-semibold text-blue-600">
-                                            {{ $this->todayLog->mood_score ?? 'なし' }}/5
+                                        <p class="text-2xl font-semibold text-blue-600 flex items-center">
+                                            @if ($this->todayLog?->mood_score)
+                                                <x-mood-icon :score="$this->todayLog->mood_score" size="2xl" />
+                                                <span class="ml-2">{{ $this->todayLog->mood_score }}/5</span>
+                                            @else
+                                                なし
+                                            @endif
                                         </p>
                                     </div>
                                 </div>
@@ -156,8 +161,14 @@ $avgSleepFormatted = computed(function () {
 
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div class="text-center">
-                            <p class="text-2xl font-semibold text-blue-600">
-                                {{ number_format($this->weeklyStats['avg_mood'], 1) }}</p>
+                            <p class="text-2xl font-semibold text-blue-600 flex items-center justify-center">
+                                @if ($this->weeklyStats['avg_mood'])
+                                    <x-mood-icon :score="round($this->weeklyStats['avg_mood'])" size="2xl" />
+                                    <span class="ml-2">{{ number_format($this->weeklyStats['avg_mood'], 1) }}</span>
+                                @else
+                                    なし
+                                @endif
+                            </p>
                             <p class="text-sm text-gray-500">平均気分スコア</p>
                         </div>
                         <div class="text-center">

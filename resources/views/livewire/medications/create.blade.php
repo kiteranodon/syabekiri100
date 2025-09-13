@@ -100,7 +100,8 @@ $save = function () {
                                         <option value="{{ $dailyLog->id }}">
                                             {{ $dailyLog->date->format('Y年m月d日 (D)') }}
                                             @if ($dailyLog->mood_score)
-                                                - 気分: {{ $dailyLog->mood_score }}/5
+                                                - 気分: <x-mood-icon :score="$dailyLog->mood_score"
+                                                    size="sm" />{{ $dailyLog->mood_score }}/5
                                             @endif
                                         </option>
                                     @endforeach
