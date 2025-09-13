@@ -16,7 +16,7 @@
         <flux:navlist variant="outline">
             <flux:navlist.group :heading="__('メイン')" class="grid">
                 <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')"
-                    wire:navigate>{{ __('ダッシュボード') }}</flux:navlist.item>
+                    wire:navigate>{{ __('ホーム') }}</flux:navlist.item>
             </flux:navlist.group>
 
             <flux:navlist.group :heading="__('記録管理')" class="grid">

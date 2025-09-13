@@ -25,8 +25,8 @@ rules([
 ]);
 
 mount(function () {
-    // デフォルトは今日の日付
-    $this->selected_date = now()->toDateString();
+    // URLパラメータから日付を取得、なければ今日をデフォルト
+    $this->selected_date = request('date', now()->toDateString());
 });
 
 // 就寝時間を更新

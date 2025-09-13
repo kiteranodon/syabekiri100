@@ -10,7 +10,7 @@ Route::get('/', function () {
 
 // 認証が必要な画面群
 Route::middleware(['auth', 'verified'])->group(function () {
-    // ダッシュボード（メイン画面）
+    // ホーム（メイン画面）
     Volt::route('dashboard', 'dashboard.index')->name('dashboard');
 
     // 日次ログ関連
@@ -21,6 +21,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // 睡眠ログ関連
     Volt::route('sleep-logs', 'sleep-logs.index')->name('sleep-logs.index');
     Volt::route('sleep-logs/create', 'sleep-logs.create')->name('sleep-logs.create');
+    Volt::route('sleep-logs/{id}/edit', 'sleep-logs.edit')->name('sleep-logs.edit');
 
     // 服薬管理関連
     Volt::route('medications', 'medications.index')->name('medications.index');
