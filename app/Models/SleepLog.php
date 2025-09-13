@@ -56,6 +56,22 @@ class SleepLog extends Model
     }
 
     /**
+     * 睡眠時間を「○○時間○○分」形式で取得
+     */
+    public function getSleepDurationFormattedAttribute(): string
+    {
+        if (!$this->sleep_hours) {
+            return '';
+        }
+
+        $totalMinutes = round($this->sleep_hours * 60);
+        $hours = floor($totalMinutes / 60);
+        $minutes = $totalMinutes % 60;
+
+        return $hours . '時間' . $minutes . '分';
+    }
+
+    /**
      * 睡眠時間を自動設定
      */
     protected static function booted()

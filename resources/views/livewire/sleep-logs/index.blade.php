@@ -63,7 +63,7 @@ $sleepLogs = computed(function () {
                                                         @elseif($sleepLog->sleep_hours < 8) bg-yellow-100 text-yellow-800
                                                         @else bg-green-100 text-green-800 @endif
                                                     ">
-                                                        {{ $sleepLog->sleep_hours }}時間睡眠
+                                                        {{ $sleepLog->sleep_duration_formatted }}睡眠
                                                     </span>
                                                 @endif
                                             </div>

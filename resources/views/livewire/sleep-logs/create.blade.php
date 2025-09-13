@@ -1,51 +1,108 @@
 <?php
 
-use function Livewire\Volt\{state, rules, computed};
+use function Livewire\Volt\{state, rules, computed, mount};
 use App\Models\DailyLog;
 use App\Models\SleepLog;
 
 state([
-    'selected_daily_log_id' => null,
-    'create_new_date' => null,
+    'selected_date' => null,
     'bedtime' => null,
+    'bedtime_hour' => null,
+    'bedtime_minute' => null,
     'wakeup_time' => null,
+    'wakeup_hour' => null,
+    'wakeup_minute' => null,
     'sleep_hours' => null,
     'sleep_quality' => null,
 ]);
 
 rules([
-    'selected_daily_log_id' => 'required_without:create_new_date|exists:daily_logs,id',
-    'create_new_date' => 'required_without:selected_daily_log_id|date|before_or_equal:today',
+    'selected_date' => 'required|date|before_or_equal:today',
     'bedtime' => 'nullable|date_format:H:i',
     'wakeup_time' => 'nullable|date_format:H:i',
     'sleep_hours' => 'nullable|numeric|min:0|max:24',
     'sleep_quality' => 'nullable|integer|min:1|max:5',
 ]);
 
-$availableDailyLogs = computed(function () {
-    return DailyLog::where('user_id', auth()->id())
-        ->whereDoesntHave('sleepLog')
-        ->where('date', '>=', now()->subDays(90)->toDateString()) // 過去90日まで
-        ->orderBy('date', 'desc')
-        ->get();
+mount(function () {
+    // デフォルトは今日の日付
+    $this->selected_date = now()->toDateString();
+});
+
+// 就寝時間を更新
+$updateBedtime = function () {
+    if ($this->bedtime_hour && $this->bedtime_minute) {
+        $this->bedtime = $this->bedtime_hour . ':' . $this->bedtime_minute;
+        $this->calculateSleepHours();
+    }
+};
+
+// 起床時間を更新
+$updateWakeupTime = function () {
+    if ($this->wakeup_hour && $this->wakeup_minute) {
+        $this->wakeup_time = $this->wakeup_hour . ':' . $this->wakeup_minute;
+        $this->calculateSleepHours();
+    }
+};
+
+// クイック日付選択のトグル機能
+$toggleQuickDate = function ($date) {
+    if ($this->selected_date === $date) {
+        // 同じ日付を再選択した場合は今日に戻す
+        $this->selected_date = now()->toDateString();
+    } else {
+        // 別の日付を選択
+        $this->selected_date = $date;
+    }
+};
+
+// 過去90日間で睡眠ログが未記入の日付を取得
+$availableDates = computed(function () {
+    $startDate = now()->subDays(90);
+    $endDate = now();
+
+    // 既に睡眠ログがある日付を取得
+    $existingSleepLogDates = SleepLog::whereHas('dailyLog', function ($query) {
+        $query->where('user_id', auth()->id());
+    })
+        ->with('dailyLog')
+        ->get()
+        ->pluck('dailyLog.date')
+        ->map(fn($date) => $date->toDateString())
+        ->toArray();
+
+    // 過去90日間の全日付から既存の睡眠ログ日付を除外
+    $availableDates = [];
+    $currentDate = $startDate->copy();
+
+    while ($currentDate->lte($endDate)) {
+        $dateString = $currentDate->toDateString();
+        if (!in_array($dateString, $existingSleepLogDates)) {
+            $availableDates[] = $dateString;
+        }
+        $currentDate->addDay();
+    }
+
+    return $availableDates;
 });
 
 $save = function () {
     $this->validate();
 
-    $dailyLogId = $this->selected_daily_log_id;
+    // 選択された日付の日次ログを取得または作成
+    $dailyLog = DailyLog::firstOrCreate([
+        'user_id' => auth()->id(),
+        'date' => $this->selected_date,
+    ]);
 
-    // 新しい日付が指定された場合は日次ログを作成
-    if ($this->create_new_date) {
-        $dailyLog = DailyLog::firstOrCreate([
-            'user_id' => auth()->id(),
-            'date' => $this->create_new_date,
-        ]);
-        $dailyLogId = $dailyLog->id;
+    // 既に睡眠ログが存在するかチェック
+    if ($dailyLog->sleepLog) {
+        session()->flash('error', 'この日付の睡眠ログは既に存在します。');
+        return;
     }
 
     $sleepLog = SleepLog::create([
-        'daily_log_id' => $dailyLogId,
+        'daily_log_id' => $dailyLog->id,
         'bedtime' => $this->bedtime,
         'wakeup_time' => $this->wakeup_time,
         'sleep_hours' => $this->sleep_hours,
@@ -62,14 +119,30 @@ $calculateSleepHours = function () {
         $bedtime = \Carbon\Carbon::createFromFormat('H:i', $this->bedtime);
         $wakeupTime = \Carbon\Carbon::createFromFormat('H:i', $this->wakeup_time);
 
-        // 翌日の起床時間の場合
+        // 起床時間が就寝時間より早い場合は翌日とみなす
         if ($wakeupTime->lt($bedtime)) {
             $wakeupTime->addDay();
         }
 
-        $this->sleep_hours = round($bedtime->diffInMinutes($wakeupTime) / 60, 2);
+        $sleepHours = $bedtime->diffInHours($wakeupTime, false);
+        $sleepMinutes = $bedtime->diffInMinutes($wakeupTime, false) % 60;
+
+        $this->sleep_hours = round($sleepHours + $sleepMinutes / 60, 1);
     }
 };
+
+// 睡眠時間を時間・分形式で取得
+$getSleepDurationFormatted = computed(function () {
+    if (!$this->sleep_hours) {
+        return '';
+    }
+
+    $totalMinutes = round($this->sleep_hours * 60);
+    $hours = floor($totalMinutes / 60);
+    $minutes = $totalMinutes % 60;
+
+    return $hours . '時間' . $minutes . '分';
+});
 
 ?>
 
@@ -86,57 +159,105 @@ $calculateSleepHours = function () {
                 <div class="p-6 bg-white border-b border-gray-200">
                     <form wire:submit="save" class="space-y-6">
                         <!-- 記録日選択 -->
-                        <div class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">
-                                記録日の選択方法
+                        <div>
+                            <label for="selected_date" class="block text-sm font-medium text-gray-700 mb-2">
+                                記録日
                             </label>
+                            <input type="date" wire:model="selected_date" id="selected_date"
+                                max="{{ now()->toDateString() }}"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                            @error('selected_date')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
 
-                            <!-- 既存の日次ログから選択 -->
-                            <div>
-                                <label for="selected_daily_log_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    既存の日次ログから選択
-                                </label>
-                                <select wire:model="selected_daily_log_id" id="selected_daily_log_id"
-                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                                    <option value="">既存の日次ログを選択してください</option>
-                                    @foreach ($this->availableDailyLogs as $dailyLog)
-                                        <option value="{{ $dailyLog->id }}">
-                                            {{ $dailyLog->date->format('Y年m月d日 (D)') }}
-                                            @if ($dailyLog->mood_score)
-                                                - 気分: {{ $dailyLog->mood_score }}/5
-                                            @endif
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('selected_daily_log_id')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <!-- または新しい日付を指定 -->
-                            <div class="border-t pt-4">
-                                <label for="create_new_date" class="block text-sm font-medium text-gray-700 mb-2">
-                                    または新しい日付を指定（過去の日付も可能）
-                                </label>
-                                <input type="date" wire:model="create_new_date" id="create_new_date"
-                                    max="{{ now()->toDateString() }}"
-                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
-                                @error('create_new_date')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
-                                <p class="mt-1 text-xs text-gray-500">
-                                    新しい日付を指定した場合、日次ログも自動で作成されます
+                            <!-- 利用可能な日付の説明 -->
+                            <div class="mt-2 p-3 bg-blue-50 rounded-md">
+                                <p class="text-sm text-blue-800">
+                                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    デフォルトは今日です。過去90日間で睡眠ログが未記入の日付を選択できます。
                                 </p>
+                                @if (count($this->availableDates) > 1)
+                                    <p class="text-xs text-blue-600 mt-1">
+                                        記録可能な日付: {{ count($this->availableDates) }}日分
+                                    </p>
+                                @endif
                             </div>
+
+                            <!-- よく選ばれる日付のクイック選択 -->
+                            @if (count($this->availableDates) > 1)
+                                <div class="mt-3">
+                                    <p class="text-sm font-medium text-gray-700 mb-2">クイック選択:</p>
+                                    <div class="flex flex-wrap gap-2">
+                                        @php
+                                            $quickDates = [
+                                                now()->subDay()->toDateString() => '昨日',
+                                                now()->subDays(2)->toDateString() => '一昨日',
+                                                now()->subDays(3)->toDateString() => '三日前',
+                                            ];
+                                        @endphp
+                                        @foreach ($quickDates as $date => $label)
+                                            @if (in_array($date, $this->availableDates))
+                                                <button type="button"
+                                                    wire:click="toggleQuickDate('{{ $date }}')"
+                                                    class="px-3 py-1 text-sm {{ $selected_date === $date ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-green-100' }} rounded-full transition-colors">
+                                                    {{ $label }}
+                                                </button>
+                                            @endif
+                                        @endforeach
+
+                                        <!-- 今日に戻すボタン -->
+                                        @if ($selected_date !== now()->toDateString())
+                                            <button type="button"
+                                                wire:click="$set('selected_date', '{{ now()->toDateString() }}')"
+                                                class="px-3 py-1 text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-full transition-colors">
+                                                今日に戻す
+                                            </button>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         <!-- 就寝時間 -->
                         <div>
-                            <label for="bedtime" class="block text-sm font-medium text-gray-700">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">
                                 就寝時間
                             </label>
-                            <input type="time" wire:model="bedtime" wire:change="calculateSleepHours" id="bedtime"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                            <div class="grid grid-cols-2 gap-4">
+                                <!-- 時間選択 -->
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">時</label>
+                                    <select wire:model="bedtime_hour" wire:change="updateBedtime"
+                                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                                        <option value="">--</option>
+                                        @for ($h = 0; $h <= 23; $h++)
+                                            <option value="{{ sprintf('%02d', $h) }}">{{ $h }}時</option>
+                                        @endfor
+                                    </select>
+                                </div>
+
+                                <!-- 分選択 -->
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">分</label>
+                                    <select wire:model="bedtime_minute" wire:change="updateBedtime"
+                                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                                        <option value="">--</option>
+                                        @for ($m = 0; $m < 60; $m += 5)
+                                            <option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}分
+                                            </option>
+                                        @endfor
+                                    </select>
+                                </div>
+                            </div>
+                            @if (isset($bedtime_hour) && isset($bedtime_minute))
+                                <p class="mt-2 text-sm text-green-600 font-medium">
+                                    就寝時間: {{ $bedtime_hour }}:{{ $bedtime_minute }}
+                                </p>
+                            @endif
                             @error('bedtime')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
@@ -144,35 +265,99 @@ $calculateSleepHours = function () {
 
                         <!-- 起床時間 -->
                         <div>
-                            <label for="wakeup_time" class="block text-sm font-medium text-gray-700">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">
                                 起床時間
                             </label>
-                            <input type="time" wire:model="wakeup_time" wire:change="calculateSleepHours"
-                                id="wakeup_time"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                            <div class="grid grid-cols-2 gap-4">
+                                <!-- 時間選択 -->
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">時</label>
+                                    <select wire:model="wakeup_hour" wire:change="updateWakeupTime"
+                                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                                        <option value="">--</option>
+                                        @for ($h = 0; $h <= 23; $h++)
+                                            <option value="{{ sprintf('%02d', $h) }}">{{ $h }}時</option>
+                                        @endfor
+                                    </select>
+                                </div>
+
+                                <!-- 分選択 -->
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1">分</label>
+                                    <select wire:model="wakeup_minute" wire:change="updateWakeupTime"
+                                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm">
+                                        <option value="">--</option>
+                                        @for ($m = 0; $m < 60; $m += 5)
+                                            <option value="{{ sprintf('%02d', $m) }}">{{ sprintf('%02d', $m) }}分
+                                            </option>
+                                        @endfor
+                                    </select>
+                                </div>
+                            </div>
+                            @if (isset($wakeup_hour) && isset($wakeup_minute))
+                                <p class="mt-2 text-sm text-green-600 font-medium">
+                                    起床時間: {{ $wakeup_hour }}:{{ $wakeup_minute }}
+                                </p>
+                            @endif
                             @error('wakeup_time')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
 
-                        <!-- 睡眠時間（自動計算または手動入力） -->
+                        <!-- 睡眠時間（自動計算） -->
                         <div>
-                            <label for="sleep_hours" class="block text-sm font-medium text-gray-700">
-                                睡眠時間（時間）
+                            <label class="block text-sm font-medium text-gray-700 mb-3">
+                                睡眠時間
                             </label>
-                            <input type="number" wire:model="sleep_hours" id="sleep_hours" step="0.1"
-                                min="0" max="24"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-                                placeholder="自動計算されるか、手動で入力してください">
-                            @error('sleep_hours')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
+                            @if ($this->getSleepDurationFormatted)
+                                <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="text-lg font-semibold text-green-800">
+                                            {{ $this->getSleepDurationFormatted }}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-green-600 mt-1">
+                                        就寝・起床時間から自動計算されました
+                                    </p>
+                                </div>
+                            @else
+                                <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="text-gray-600">
+                                            就寝・起床時間を選択すると自動計算されます
+                                        </span>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <!-- 手動入力も可能 -->
+                            <div class="mt-4">
+                                <label class="block text-xs font-medium text-gray-500 mb-2">
+                                    手動で修正する場合（小数点可）
+                                </label>
+                                <input type="number" step="0.1" wire:model="sleep_hours"
+                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                    placeholder="例: 7.5">
+                                @error('sleep_hours')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
 
                         <!-- 睡眠の質 -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-3">
-                                睡眠の質（1〜5）
+                                睡眠の質（1〜5段階）
                             </label>
                             <div class="flex space-x-4">
                                 @for ($i = 1; $i <= 5; $i++)
@@ -182,15 +367,11 @@ $calculateSleepHours = function () {
                                         <span class="ml-2 text-sm text-gray-700">
                                             {{ $i }}
                                             @if ($i == 1)
-                                                (とても悪い)
-                                            @elseif($i == 2)
-                                                (悪い)
+                                                （悪い）
                                             @elseif($i == 3)
-                                                (普通)
-                                            @elseif($i == 4)
-                                                (良い)
+                                                （普通）
                                             @elseif($i == 5)
-                                                (とても良い)
+                                                （良い）
                                             @endif
                                         </span>
                                     </label>

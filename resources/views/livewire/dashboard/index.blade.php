@@ -33,6 +33,20 @@ $weeklyStats = computed(function () {
     ];
 });
 
+// 平均睡眠時間を「○○時間○○分」形式で取得
+$avgSleepFormatted = computed(function () {
+    $avgSleep = $this->weeklyStats['avg_sleep'];
+    if (!$avgSleep) {
+        return 'なし';
+    }
+
+    $totalMinutes = round($avgSleep * 60);
+    $hours = floor($totalMinutes / 60);
+    $minutes = $totalMinutes % 60;
+
+    return $hours . '時間' . $minutes . '分';
+});
+
 ?>
 
 <div>
@@ -83,7 +97,7 @@ $weeklyStats = computed(function () {
                                     <div class="ml-3">
                                         <p class="text-sm font-medium text-green-900">睡眠時間</p>
                                         <p class="text-2xl font-semibold text-green-600">
-                                            {{ $this->todayLog->sleepLog?->sleep_hours ?? 'なし' }}時間
+                                            {{ $this->todayLog->sleepLog?->sleep_duration_formatted ?? 'なし' }}
                                         </p>
                                     </div>
                                 </div>
@@ -148,7 +162,7 @@ $weeklyStats = computed(function () {
                         </div>
                         <div class="text-center">
                             <p class="text-2xl font-semibold text-green-600">
-                                {{ number_format($this->weeklyStats['avg_sleep'], 1) }}h</p>
+                                {{ $this->avgSleepFormatted }}</p>
                             <p class="text-sm text-gray-500">平均睡眠時間</p>
                         </div>
                         <div class="text-center">
