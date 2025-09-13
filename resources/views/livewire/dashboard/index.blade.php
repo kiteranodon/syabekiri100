@@ -58,6 +58,63 @@ $avgSleepFormatted = computed(function () {
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <!-- クイックアクション -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-8">
+                <div class="p-6 bg-white">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">クイックアクション</h3>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                        <!-- まとめて記入ボタン（大きめ） -->
+                        <div class="lg:col-span-2">
+                            <a href="{{ route('daily-logs.create', ['flow' => 'batch']) }}"
+                                class="flex items-center justify-center p-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 shadow-lg">
+                                <svg class="h-6 w-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                <div class="text-center">
+                                    <div class="text-lg font-bold">まとめて記入</div>
+                                    <div class="text-sm opacity-90">（気分・睡眠・服薬）</div>
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- 個別記録ボタン（小さめ） -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 lg:col-span-2 gap-4">
+                            <a href="{{ route('daily-logs.create') }}"
+                                class="flex items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                                <svg class="h-5 w-5 text-blue-600 mr-2" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-sm font-medium text-blue-900">気分記録</span>
+                            </a>
+
+                            <a href="{{ route('sleep-logs.create') }}"
+                                class="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+                                <svg class="h-5 w-5 text-green-600 mr-2" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                </svg>
+                                <span class="text-sm font-medium text-green-900">睡眠記録</span>
+                            </a>
+
+                            <a href="{{ route('medications.index') }}"
+                                class="flex items-center p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                                <svg class="h-5 w-5 text-purple-600 mr-2" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                </svg>
+                                <span class="text-sm font-medium text-purple-900">服薬管理</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 今日の状況 -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-8">
                 <div class="p-6 bg-white border-b border-gray-200">
@@ -190,54 +247,6 @@ $avgSleepFormatted = computed(function () {
                 </div>
             </div>
 
-            <!-- クイックアクション -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 bg-white">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">クイックアクション</h3>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <a href="{{ route('daily-logs.create') }}"
-                            class="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                            <svg class="h-6 w-6 text-blue-600 mr-3" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                            <span class="text-sm font-medium text-blue-900">気分記録</span>
-                        </a>
-
-                        <a href="{{ route('sleep-logs.create') }}"
-                            class="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                            <svg class="h-6 w-6 text-green-600 mr-3" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                            </svg>
-                            <span class="text-sm font-medium text-green-900">睡眠記録</span>
-                        </a>
-
-                        <a href="{{ route('medications.index') }}"
-                            class="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
-                            <svg class="h-6 w-6 text-purple-600 mr-3" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                            </svg>
-                            <span class="text-sm font-medium text-purple-900">服薬管理</span>
-                        </a>
-
-                        <a href="{{ route('reports.create') }}"
-                            class="flex items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
-                            <svg class="h-6 w-6 text-orange-600 mr-3" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span class="text-sm font-medium text-orange-900">レポート作成</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>

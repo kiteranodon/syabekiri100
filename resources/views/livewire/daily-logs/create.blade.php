@@ -1,12 +1,13 @@
 <?php
 
-use function Livewire\Volt\{state, rules};
+use function Livewire\Volt\{state, rules, mount};
 use App\Models\DailyLog;
 
 state([
     'date' => now()->toDateString(),
     'mood_score' => null,
     'free_note' => '',
+    'flow' => null,
 ]);
 
 rules([
@@ -14,6 +15,10 @@ rules([
     'mood_score' => 'nullable|integer|min:1|max:5',
     'free_note' => 'nullable|string|max:140',
 ]);
+
+mount(function () {
+    $this->flow = request('flow');
+});
 
 $save = function () {
     $this->validate();
@@ -35,6 +40,11 @@ $save = function () {
         'free_note' => $this->free_note,
     ]);
 
+    if ($this->flow === 'batch') {
+        session()->flash('success', '気分記録を保存しました。次に睡眠記録を入力してください。');
+        return redirect()->route('sleep-logs.create', ['flow' => 'batch', 'date' => $this->date]);
+    }
+
     session()->flash('success', '気分記録を保存しました。');
     return redirect()->route('daily-logs.index');
 };
@@ -44,7 +54,11 @@ $save = function () {
 <div>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('今日の気分記録') }}
+            @if ($flow === 'batch')
+                {{ __('まとめて記入 - 気分記録 (1/3)') }}
+            @else
+                {{ __('今日の気分記録') }}
+            @endif
         </h2>
     </x-slot>
 

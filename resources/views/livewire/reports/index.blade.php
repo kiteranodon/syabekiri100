@@ -46,6 +46,12 @@ $setPeriod = function ($period) {
         default:
             $this->dateFrom = now()->subMonth()->toDateString();
     }
+
+    // チャートデータ更新をブラウザに通知
+    $this->dispatch('chartDataUpdated', [
+        'chartData' => $this->chartData,
+        'period' => $period,
+    ]);
 };
 
 // 期間タブの定義
@@ -64,10 +70,22 @@ $periodTabs = computed(function () {
 // 手動で日付を変更した時の処理
 $updatedDateFrom = function () {
     $this->selectedPeriod = 'custom'; // カスタム期間に設定
+
+    // チャートデータ更新をブラウザに通知
+    $this->dispatch('chartDataUpdated', [
+        'chartData' => $this->chartData,
+        'period' => 'custom',
+    ]);
 };
 
 $updatedDateTo = function () {
     $this->selectedPeriod = 'custom'; // カスタム期間に設定
+
+    // チャートデータ更新をブラウザに通知
+    $this->dispatch('chartDataUpdated', [
+        'chartData' => $this->chartData,
+        'period' => 'custom',
+    ]);
 };
 
 // 指定期間の日次ログデータを取得
@@ -371,18 +389,45 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                     <!-- 期間選択タブ -->
                     <div class="flex flex-wrap justify-center gap-1 mb-6">
                         @foreach ($this->periodTabs as $key => $label)
-                            <button wire:click="setPeriod('{{ $key }}')"
+                            <button wire:click="setPeriod('{{ $key }}')" wire:loading.attr="disabled"
+                                wire:loading.class="opacity-50 cursor-not-allowed" wire:target="setPeriod"
                                 class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 
                                     {{ $selectedPeriod === $key
                                         ? 'bg-blue-600 text-white shadow-md'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                {{ $label }}
+                                <span wire:loading.remove wire:target="setPeriod">{{ $label }}</span>
+                                <span wire:loading wire:target="setPeriod" class="flex items-center">
+                                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+                                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10"
+                                            stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        </path>
+                                    </svg>
+                                    {{ $label }}
+                                </span>
                             </button>
                         @endforeach
                     </div>
 
                     <h3 class="text-lg font-medium text-gray-900 mb-6 text-center">気分と睡眠の推移</h3>
                     <div class="relative h-[600px]">
+                        <!-- ローディング表示 -->
+                        <div wire:loading wire:target="setPeriod,updatedDateFrom,updatedDateTo"
+                            class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                            <div class="text-center">
+                                <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2"
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10"
+                                        stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                    </path>
+                                </svg>
+                                <p class="text-sm text-gray-600">チャートを更新中...</p>
+                            </div>
+                        </div>
                         <canvas id="moodSleepChart"></canvas>
                     </div>
                 </div>
@@ -509,7 +554,7 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
         window.chartData = null;
 
         // チャート作成関数
-        function createMoodSleepChart() {
+        function createMoodSleepChart(customData = null) {
             console.log('=== Chart creation started ===');
 
             // Chart.js確認
@@ -525,6 +570,24 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                 return;
             }
 
+            // コンテナのサイズを確認
+            const container = canvas.parentElement;
+            if (container) {
+                const containerRect = container.getBoundingClientRect();
+                console.log('Container size:', {
+                    width: containerRect.width,
+                    height: containerRect.height,
+                    visible: containerRect.width > 0 && containerRect.height > 0
+                });
+
+                // コンテナが見えない場合は少し待つ
+                if (containerRect.width === 0 || containerRect.height === 0) {
+                    console.log('Container not visible yet, retrying...');
+                    setTimeout(() => createMoodSleepChart(customData), 200);
+                    return false;
+                }
+            }
+
             // 既存チャート破棄
             if (window.moodSleepChart) {
                 try {
@@ -535,13 +598,25 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                 window.moodSleepChart = null;
             }
 
-            // データ取得
-            const chartData = @json($this->chartData);
+            // Canvasのサイズをリセット
+            canvas.style.width = '';
+            canvas.style.height = '';
+            canvas.width = 0;
+            canvas.height = 0;
+
+            // データ取得（カスタムデータがある場合はそれを使用）
+            const chartData = customData || @json($this->chartData);
             console.log('Chart data:', chartData);
 
-            let labels = chartData?.labels || [];
-            let moodData = chartData?.moodData || [];
-            let sleepData = chartData?.sleepData || [];
+            // データ検証
+            if (!chartData || typeof chartData !== 'object') {
+                console.error('Invalid chart data:', chartData);
+                return false;
+            }
+
+            let labels = Array.isArray(chartData.labels) ? chartData.labels : [];
+            let moodData = Array.isArray(chartData.moodData) ? chartData.moodData : [];
+            let sleepData = Array.isArray(chartData.sleepData) ? chartData.sleepData : [];
 
             console.log('Processing data:', {
                 labelsCount: labels.length,
@@ -552,10 +627,20 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                 sleepData: sleepData
             });
 
+            // データが空の場合の処理
+            if (labels.length === 0) {
+                console.log('No data available for chart');
+                // 空のチャートを表示
+                labels = ['データなし'];
+                moodData = [null];
+                sleepData = [null];
+            }
+
             // チャート作成
             try {
                 const ctx = canvas.getContext('2d');
                 window.moodSleepChart = new Chart(ctx, {
+                    type: 'line', // Mixed chartのベースタイプを指定
                     data: {
                         labels: labels,
                         datasets: [{
@@ -572,7 +657,8 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                                 pointBorderWidth: 2,
                                 yAxisID: 'y',
                                 spanGaps: true,
-                                tension: 0.3
+                                tension: 0.3,
+                                fill: false
                             },
                             {
                                 type: 'bar',
@@ -588,6 +674,7 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        resizeDelay: 0, // リサイズの遅延を最小に
                         layout: {
                             padding: {
                                 top: 20,
@@ -724,6 +811,30 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                     }
                 });
 
+                // チャート作成後にリサイズを強制実行
+                setTimeout(() => {
+                    if (window.moodSleepChart) {
+                        window.moodSleepChart.resize();
+                        console.log('Chart resized after creation');
+                    }
+                }, 100);
+
+                // ResizeObserverでコンテナサイズ変更を監視
+                if (typeof ResizeObserver !== 'undefined' && container) {
+                    if (window.chartResizeObserver) {
+                        window.chartResizeObserver.disconnect();
+                    }
+
+                    window.chartResizeObserver = new ResizeObserver((entries) => {
+                        if (window.moodSleepChart) {
+                            console.log('Container resized, updating chart');
+                            window.moodSleepChart.resize();
+                        }
+                    });
+
+                    window.chartResizeObserver.observe(container);
+                }
+
                 console.log('✓ Chart created successfully');
                 return true;
 
@@ -735,19 +846,160 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
 
         // 初期化処理
         function initChart() {
+            console.log('Chart initialization started, document ready state:', document.readyState);
+
+            function attemptChartCreation(retryCount = 0) {
+                const maxRetries = 5;
+
+                if (retryCount >= maxRetries) {
+                    console.error('Failed to create chart after', maxRetries, 'attempts');
+                    return;
+                }
+
+                const canvas = document.getElementById('moodSleepChart');
+                if (!canvas) {
+                    console.log('Canvas not ready, retrying...', retryCount + 1);
+                    setTimeout(() => attemptChartCreation(retryCount + 1), 500);
+                    return;
+                }
+
+                if (typeof Chart === 'undefined') {
+                    console.log('Chart.js not ready, retrying...', retryCount + 1);
+                    setTimeout(() => attemptChartCreation(retryCount + 1), 500);
+                    return;
+                }
+
+                console.log('Creating chart, attempt:', retryCount + 1);
+                const success = createMoodSleepChart();
+
+                if (success) {
+                    // 初期化成功後、追加のリサイズを実行
+                    setTimeout(() => {
+                        if (window.moodSleepChart) {
+                            window.moodSleepChart.resize();
+                            console.log('Initial chart resize completed');
+                        }
+                    }, 300);
+                } else if (retryCount < maxRetries - 1) {
+                    console.log('Chart creation failed, retrying...', retryCount + 1);
+                    setTimeout(() => attemptChartCreation(retryCount + 1), 1000);
+                }
+            }
+
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', function() {
-                    setTimeout(createMoodSleepChart, 1000);
+                    setTimeout(() => attemptChartCreation(), 500);
                 });
             } else {
-                setTimeout(createMoodSleepChart, 500);
+                setTimeout(() => attemptChartCreation(), 200);
             }
         }
 
-        // Livewire更新時の処理
-        document.addEventListener('livewire:updated', function() {
-            console.log('Livewire updated - recreating chart');
-            setTimeout(createMoodSleepChart, 200);
+        // チャートデータ更新関数
+        function updateChartData(newData) {
+            console.log('=== Chart data update started ===');
+            console.log('New data:', newData);
+
+            // データ検証
+            if (!newData || typeof newData !== 'object') {
+                console.error('Invalid update data:', newData);
+                return;
+            }
+
+            if (!window.moodSleepChart) {
+                console.log('Chart not found, creating new chart');
+                createMoodSleepChart(newData);
+                return;
+            }
+
+            try {
+                // データ準備
+                let labels = Array.isArray(newData.labels) ? newData.labels : [];
+                let moodData = Array.isArray(newData.moodData) ? newData.moodData : [];
+                let sleepData = Array.isArray(newData.sleepData) ? newData.sleepData : [];
+
+                // データが空の場合の処理
+                if (labels.length === 0) {
+                    labels = ['データなし'];
+                    moodData = [null];
+                    sleepData = [null];
+                }
+
+                // データ更新
+                const chart = window.moodSleepChart;
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = moodData;
+                chart.data.datasets[1].data = sleepData;
+
+                // アニメーション付きで更新
+                chart.update('active');
+
+                // 更新後にリサイズを実行
+                setTimeout(() => {
+                    if (window.moodSleepChart) {
+                        window.moodSleepChart.resize();
+                        console.log('Chart resized after data update');
+                    }
+                }, 100);
+
+                console.log('✓ Chart data updated successfully');
+            } catch (error) {
+                console.error('Chart update failed, recreating:', error);
+                createMoodSleepChart(newData);
+            }
+        }
+
+        // イベントリスナーの重複を防ぐフラグ
+        let chartEventListenerAdded = false;
+
+        // Livewireイベントリスナー
+        function setupChartEventListeners() {
+            if (chartEventListenerAdded) {
+                return;
+            }
+
+            // チャートデータ更新イベント
+            Livewire.on('chartDataUpdated', function(data) {
+                console.log('Chart data updated event received:', data);
+                const chartData = data[0]?.chartData || data.chartData;
+                const period = data[0]?.period || data.period;
+
+                console.log('Updating chart for period:', period);
+                // 少し遅延させて確実にDOMが更新されてから実行
+                setTimeout(() => {
+                    updateChartData(chartData);
+                }, 100);
+            });
+
+            chartEventListenerAdded = true;
+        }
+
+        // Livewire初期化時
+        document.addEventListener('livewire:init', function() {
+            setupChartEventListeners();
+        });
+
+        // Livewire更新時の処理（期間変更以外の更新時のみ）
+        document.addEventListener('livewire:updated', function(event) {
+            console.log('Livewire updated - checking if chart recreation needed');
+
+            // チャートが存在しない場合のみ再作成
+            if (!window.moodSleepChart) {
+                console.log('Chart not found, recreating...');
+                setTimeout(createMoodSleepChart, 200);
+            }
+        });
+
+        // ウィンドウリサイズイベント
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (window.moodSleepChart) {
+                    console.log('Window resized, updating chart');
+                    window.moodSleepChart.resize();
+                }
+            }, 250);
         });
 
         // 初期化実行

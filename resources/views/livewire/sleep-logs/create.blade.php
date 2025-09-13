@@ -14,6 +14,7 @@ state([
     'wakeup_minute' => null,
     'sleep_hours' => null,
     'sleep_quality' => null,
+    'flow' => null,
 ]);
 
 rules([
@@ -27,6 +28,7 @@ rules([
 mount(function () {
     // URLパラメータから日付を取得、なければ今日をデフォルト
     $this->selected_date = request('date', now()->toDateString());
+    $this->flow = request('flow');
 });
 
 // 就寝時間を更新
@@ -109,6 +111,11 @@ $save = function () {
         'sleep_quality' => $this->sleep_quality,
     ]);
 
+    if ($this->flow === 'batch') {
+        session()->flash('success', '睡眠ログを保存しました。次に服薬管理を確認してください。');
+        return redirect()->route('medications.index', ['flow' => 'batch', 'date' => $this->selected_date]);
+    }
+
     session()->flash('success', '睡眠ログを保存しました。');
     return redirect()->route('sleep-logs.index');
 };
@@ -149,7 +156,11 @@ $getSleepDurationFormatted = computed(function () {
 <div>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('睡眠ログ作成') }}
+            @if ($flow === 'batch')
+                {{ __('まとめて記入 - 睡眠記録 (2/3)') }}
+            @else
+                {{ __('睡眠ログ作成') }}
+            @endif
         </h2>
     </x-slot>
 

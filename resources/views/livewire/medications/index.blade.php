@@ -1,6 +1,6 @@
 <?php
 
-use function Livewire\Volt\{state, computed};
+use function Livewire\Volt\{state, computed, mount};
 use App\Models\MedicationLog;
 use App\Models\DailyLog;
 
@@ -10,7 +10,18 @@ state([
     'newMedicineName' => '',
     'newMedicineTiming' => '',
     'selectedMedicationId' => null,
+    'flow' => null,
+    'flowDate' => null,
 ]);
+
+mount(function () {
+    $this->flow = request('flow');
+    $this->flowDate = request('date');
+
+    if ($this->flow === 'batch') {
+        session()->flash('success', '記録が完了しました！今日の服薬状況を確認してください。');
+    }
+});
 
 $todayMedications = computed(function () {
     $todayDailyLog = DailyLog::where('user_id', auth()->id())
@@ -157,7 +168,11 @@ $takeAllMedicationsInTiming = function ($timing) {
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('服薬管理') }}
+                @if ($flow === 'batch')
+                    {{ __('まとめて記入 - 服薬管理 (3/3)') }}
+                @else
+                    {{ __('服薬管理') }}
+                @endif
             </h2>
             <div class="flex space-x-3">
                 <a href="{{ route('medications.today') }}"
@@ -194,6 +209,20 @@ $takeAllMedicationsInTiming = function ($timing) {
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 bg-white border-b border-gray-200">
                     <div class="mb-6">
+                        @if ($flow === 'batch')
+                            <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <div class="flex items-center">
+                                    <svg class="h-5 w-5 text-green-600 mr-2" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p class="text-sm text-green-800 font-medium">
+                                        まとめて記入が完了しました！気分記録と睡眠記録が保存されました。
+                                    </p>
+                                </div>
+                            </div>
+                        @endif
                         <h3 class="text-lg font-medium text-gray-900 mb-2">今日の服薬状況</h3>
                         <div class="flex justify-between items-center">
                             <p class="text-sm text-gray-600">{{ now()->format('Y年m月d日 (D)') }}</p>
