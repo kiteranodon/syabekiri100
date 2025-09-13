@@ -8,13 +8,67 @@ use App\Models\MedicationLog;
 state([
     'dateFrom' => null,
     'dateTo' => null,
+    'selectedPeriod' => '1month', // デフォルトは1ヶ月
 ]);
 
 mount(function () {
-    // デフォルトで過去30日間のデータを表示
-    $this->dateTo = now()->toDateString();
-    $this->dateFrom = now()->subDays(29)->toDateString();
+    // デフォルトで過去1ヶ月のデータを表示
+    $this->setPeriod('1month');
 });
+
+// 期間選択メソッド
+$setPeriod = function ($period) {
+    $this->selectedPeriod = $period;
+    $this->dateTo = now()->toDateString();
+
+    switch ($period) {
+        case '1week':
+            $this->dateFrom = now()->subWeek()->toDateString();
+            break;
+        case '2weeks':
+            $this->dateFrom = now()->subWeeks(2)->toDateString();
+            break;
+        case '3weeks':
+            $this->dateFrom = now()->subWeeks(3)->toDateString();
+            break;
+        case '1month':
+            $this->dateFrom = now()->subMonth()->toDateString();
+            break;
+        case '3months':
+            $this->dateFrom = now()->subMonths(3)->toDateString();
+            break;
+        case '6months':
+            $this->dateFrom = now()->subMonths(6)->toDateString();
+            break;
+        case '1year':
+            $this->dateFrom = now()->subYear()->toDateString();
+            break;
+        default:
+            $this->dateFrom = now()->subMonth()->toDateString();
+    }
+};
+
+// 期間タブの定義
+$periodTabs = computed(function () {
+    return [
+        '1week' => '1週間',
+        '2weeks' => '2週間',
+        '3weeks' => '3週間',
+        '1month' => '1ヶ月',
+        '3months' => '3ヶ月',
+        '6months' => '6ヶ月',
+        '1year' => '1年',
+    ];
+});
+
+// 手動で日付を変更した時の処理
+$updatedDateFrom = function () {
+    $this->selectedPeriod = 'custom'; // カスタム期間に設定
+};
+
+$updatedDateTo = function () {
+    $this->selectedPeriod = 'custom'; // カスタム期間に設定
+};
 
 // 指定期間の日次ログデータを取得
 $chartData = computed(function () {
@@ -88,53 +142,56 @@ $statistics = computed(function () {
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <!-- 期間選択 -->
+            <!-- 期間選択（詳細設定） -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6 bg-white border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">期間選択</h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">期間設定</h3>
+                        <div class="text-sm text-gray-600">
+                            現在の期間: <span class="font-medium text-blue-600">
+                                {{ $selectedPeriod === 'custom' ? 'カスタム' : $this->periodTabs[$selectedPeriod] }}
+                            </span>
+                            ({{ \Carbon\Carbon::parse($dateFrom)->format('Y/m/d') }} ～
+                            {{ \Carbon\Carbon::parse($dateTo)->format('Y/m/d') }})
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="dateFrom" class="block text-sm font-medium text-gray-700 mb-2">開始日</label>
+                            <label for="dateFrom" class="block text-sm font-medium text-gray-700 mb-2">開始日（手動調整）</label>
                             <input type="date" id="dateFrom" wire:model.live="dateFrom"
                                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
                         </div>
                         <div>
-                            <label for="dateTo" class="block text-sm font-medium text-gray-700 mb-2">終了日</label>
+                            <label for="dateTo" class="block text-sm font-medium text-gray-700 mb-2">終了日（手動調整）</label>
                             <input type="date" id="dateTo" wire:model.live="dateTo"
                                 max="{{ now()->toDateString() }}"
                                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- デバッグ情報 -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6 bg-white border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">デバッグ情報</h3>
-                    <div class="bg-gray-100 p-4 rounded text-sm">
-                        <p><strong>期間:</strong> {{ $dateFrom }} ～ {{ $dateTo }}</p>
-                        <p><strong>ラベル数:</strong> {{ count($this->chartData['labels']) }}</p>
-                        <p><strong>気分データ数:</strong> {{ count($this->chartData['moodData']) }}</p>
-                        <p><strong>睡眠データ数:</strong> {{ count($this->chartData['sleepData']) }}</p>
-                        <p><strong>ラベル:</strong>
-                            {{ implode(', ', array_slice($this->chartData['labels'], 0, 10)) }}{{ count($this->chartData['labels']) > 10 ? '...' : '' }}
-                        </p>
-                        <p><strong>気分データ:</strong>
-                            {{ implode(', ', array_slice($this->chartData['moodData'], 0, 10)) }}{{ count($this->chartData['moodData']) > 10 ? '...' : '' }}
-                        </p>
-                        <p><strong>睡眠データ:</strong>
-                            {{ implode(', ', array_slice($this->chartData['sleepData'], 0, 10)) }}{{ count($this->chartData['sleepData']) > 10 ? '...' : '' }}
-                        </p>
-                    </div>
+                    <p class="text-xs text-gray-500 mt-2">
+                        ※ 上記のタブで期間を選択するか、こちらで手動で日付を調整できます
+                    </p>
                 </div>
             </div>
 
             <!-- グラフ表示 -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6 bg-white border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">気分と睡眠の推移</h3>
-                    <div class="relative h-96">
+                    <!-- 期間選択タブ -->
+                    <div class="flex flex-wrap justify-center gap-1 mb-6">
+                        @foreach ($this->periodTabs as $key => $label)
+                            <button wire:click="setPeriod('{{ $key }}')"
+                                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 
+                                    {{ $selectedPeriod === $key
+                                        ? 'bg-blue-600 text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                {{ $label }}
+                            </button>
+                        @endforeach
+                    </div>
+
+                    <h3 class="text-lg font-medium text-gray-900 mb-6 text-center">気分と睡眠の推移</h3>
+                    <div class="relative h-[600px]">
                         <canvas id="moodSleepChart"></canvas>
                     </div>
                 </div>
@@ -218,62 +275,57 @@ $statistics = computed(function () {
 
     <!-- Chart.js初期化スクリプト -->
     <script>
-        // グローバル変数でチャートインスタンスを管理
+        // グローバル変数
         window.moodSleepChart = null;
+        window.chartData = null;
 
-        // チャート初期化関数
-        function createChart() {
-            console.log('=== Chart initialization started ===');
+        // チャート作成関数
+        function createMoodSleepChart() {
+            console.log('=== Chart creation started ===');
 
-            // Chart.jsが読み込まれているか確認
+            // Chart.js確認
             if (typeof Chart === 'undefined') {
-                console.error('Chart.js is not loaded!');
+                console.error('Chart.js not loaded');
                 return;
             }
-            console.log('✓ Chart.js is loaded');
 
-            // Canvas要素を取得
+            // Canvas取得
             const canvas = document.getElementById('moodSleepChart');
             if (!canvas) {
-                console.error('Canvas element not found!');
+                console.error('Canvas not found');
                 return;
             }
-            console.log('✓ Canvas element found');
 
-            // 既存のチャートを破棄
+            // 既存チャート破棄
             if (window.moodSleepChart) {
-                console.log('Destroying existing chart');
-                window.moodSleepChart.destroy();
+                try {
+                    window.moodSleepChart.destroy();
+                } catch (e) {
+                    console.log('Chart destroy error (ignored)');
+                }
                 window.moodSleepChart = null;
             }
 
-            // データを取得
-            const rawData = @json($this->chartData);
-            console.log('Raw data from server:', rawData);
+            // データ取得
+            const chartData = @json($this->chartData);
+            console.log('Chart data:', chartData);
 
-            // データの準備
-            let labels = rawData?.labels || [];
-            let moodData = rawData?.moodData || [];
-            let sleepData = rawData?.sleepData || [];
+            let labels = chartData?.labels || [];
+            let moodData = chartData?.moodData || [];
+            let sleepData = chartData?.sleepData || [];
 
-            // データがない場合はサンプルデータを使用
-            if (labels.length === 0) {
-                console.log('No data found, using sample data');
-                labels = ['09/10', '09/11', '09/12', '09/13', '09/14'];
-                moodData = [3, null, 4, 5, null]; // null値を含む
-                sleepData = [7.5, 6.0, null, 8.5, 7.0]; // null値を含む
-            }
-
-            console.log('Chart data prepared:', {
+            console.log('Processing data:', {
+                labelsCount: labels.length,
+                moodDataCount: moodData.length,
+                sleepDataCount: sleepData.length,
                 labels: labels,
                 moodData: moodData,
                 sleepData: sleepData
             });
 
-            // チャートを作成
+            // チャート作成
             try {
                 const ctx = canvas.getContext('2d');
-
                 window.moodSleepChart = new Chart(ctx, {
                     data: {
                         labels: labels,
@@ -290,7 +342,7 @@ $statistics = computed(function () {
                                 pointBorderColor: '#ffffff',
                                 pointBorderWidth: 2,
                                 yAxisID: 'y',
-                                spanGaps: true, // null値をスキップして線を繋ぐ
+                                spanGaps: true,
                                 tension: 0.3
                             },
                             {
@@ -395,14 +447,13 @@ $statistics = computed(function () {
                                     }
                                 },
                                 min: 0,
-                                max: 6, // 5から6に変更して上部に余白を追加
+                                max: 6,
                                 ticks: {
                                     stepSize: 1,
                                     color: '#3b82f6',
                                     font: {
                                         size: 12
                                     },
-                                    // 6は表示しない（余白用）
                                     callback: function(value) {
                                         return value <= 5 ? value : '';
                                     }
@@ -425,14 +476,13 @@ $statistics = computed(function () {
                                     }
                                 },
                                 min: 0,
-                                max: 14, // 12から14に変更して上部に余白を追加
+                                max: 14,
                                 ticks: {
                                     stepSize: 2,
                                     color: '#22c55e',
                                     font: {
                                         size: 12
                                     },
-                                    // 13, 14は表示しない（余白用）
                                     callback: function(value) {
                                         return value <= 12 ? value : '';
                                     }
@@ -445,29 +495,33 @@ $statistics = computed(function () {
                     }
                 });
 
-                console.log('✓ Chart created successfully!');
-                console.log('=== Chart initialization completed ===');
+                console.log('✓ Chart created successfully');
+                return true;
 
             } catch (error) {
                 console.error('Chart creation failed:', error);
+                return false;
             }
         }
 
-        // DOM読み込み後に初期化
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
-                console.log('DOM loaded, initializing chart in 1 second...');
-                setTimeout(createChart, 1000);
-            });
-        } else {
-            console.log('DOM already loaded, initializing chart...');
-            setTimeout(createChart, 500);
+        // 初期化処理
+        function initChart() {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(createMoodSleepChart, 1000);
+                });
+            } else {
+                setTimeout(createMoodSleepChart, 500);
+            }
         }
 
         // Livewire更新時の処理
         document.addEventListener('livewire:updated', function() {
-            console.log('Livewire updated, reinitializing chart...');
-            setTimeout(createChart, 300);
+            console.log('Livewire updated - recreating chart');
+            setTimeout(createMoodSleepChart, 200);
         });
+
+        // 初期化実行
+        initChart();
     </script>
 </div>
