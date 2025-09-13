@@ -27,6 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Volt::route('medications/create', 'medications.create')->name('medications.create');
     Volt::route('medications/today', 'medications.today')->name('medications.today');
     Volt::route('medications/history', 'medications.history')->name('medications.history');
+    Volt::route('medications/{id}/edit', 'medications.edit')->name('medications.edit');
 
     // レポート関連
     Volt::route('reports', 'reports.index')->name('reports.index');

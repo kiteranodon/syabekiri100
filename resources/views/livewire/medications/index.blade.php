@@ -129,6 +129,28 @@ $deleteMedication = function () {
     session()->flash('success', '薬を削除しました。');
 };
 
+// 時間帯別一括服薬
+$takeAllMedicationsInTiming = function ($timing) {
+    $todayDailyLog = DailyLog::where('user_id', auth()->id())
+        ->where('date', now()->toDateString())
+        ->first();
+
+    if (!$todayDailyLog) {
+        session()->flash('error', '今日の記録が見つかりません。');
+        return;
+    }
+
+    $updatedCount = MedicationLog::where('daily_log_id', $todayDailyLog->id)
+        ->where('timing', $timing)
+        ->update(['taken' => true]);
+
+    if ($updatedCount > 0) {
+        session()->flash('success', $updatedCount . '種類の薬を服薬済みにしました。');
+    } else {
+        session()->flash('info', 'この時間帯に薬がありません。');
+    }
+};
+
 ?>
 
 <div>
@@ -171,29 +193,32 @@ $deleteMedication = function () {
             <!-- 今日の服薬状況 -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 bg-white border-b border-gray-200">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-medium text-gray-900">今日の服薬状況 - {{ now()->format('Y年m月d日 (D)') }}</h3>
-                        <div class="flex items-center space-x-3">
-                            <button wire:click="$set('showAddModal', true)"
-                                class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                薬の追加
-                            </button>
-                            <button wire:click="$set('showDeleteModal', true)"
-                                class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                                薬の削除
-                            </button>
-                            <a href="{{ route('medications.history') }}"
-                                class="text-sm text-purple-600 hover:text-purple-800">
-                                服用履歴 →
-                            </a>
+                    <div class="mb-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">今日の服薬状況</h3>
+                        <div class="flex justify-between items-center">
+                            <p class="text-sm text-gray-600">{{ now()->format('Y年m月d日 (D)') }}</p>
+                            <div class="flex items-center space-x-3">
+                                <button wire:click="$set('showAddModal', true)"
+                                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                    薬の追加
+                                </button>
+                                <button wire:click="$set('showDeleteModal', true)"
+                                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    薬の削除
+                                </button>
+                                <a href="{{ route('medications.history') }}"
+                                    class="text-sm text-purple-600 hover:text-purple-800">
+                                    服用履歴 →
+                                </a>
+                            </div>
                         </div>
                     </div>
 
@@ -237,19 +262,33 @@ $deleteMedication = function () {
                                     <div
                                         class="border border-gray-200 rounded-lg p-4 
                                         {{ $timingKey === 'as_needed' ? 'bg-yellow-50' : 'bg-gray-50' }}">
-                                        <h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                                            <span class="mr-2">{{ $group['icon'] }}</span>
-                                            {{ $group['label'] }}
-                                            <span class="ml-2 text-sm text-gray-500">
-                                                ({{ $group['medications']->count() }}種類)
-                                            </span>
-                                            @if ($timingKey === 'as_needed')
-                                                <span
-                                                    class="ml-2 text-xs text-yellow-700 bg-yellow-200 px-2 py-1 rounded">
-                                                    遵守率対象外
+                                        <div class="flex justify-between items-center mb-4">
+                                            <h4 class="text-lg font-medium text-gray-900 flex items-center">
+                                                <span class="mr-2">{{ $group['icon'] }}</span>
+                                                {{ $group['label'] }}
+                                                <span class="ml-2 text-sm text-gray-500">
+                                                    ({{ $group['medications']->count() }}種類)
                                                 </span>
+                                                @if ($timingKey === 'as_needed')
+                                                    <span
+                                                        class="ml-2 text-xs text-yellow-700 bg-yellow-200 px-2 py-1 rounded">
+                                                        遵守率対象外
+                                                    </span>
+                                                @endif
+                                            </h4>
+
+                                            @if ($timingKey !== 'as_needed' && $group['medications']->count() > 0)
+                                                <button wire:click="takeAllMedicationsInTiming('{{ $timingKey }}')"
+                                                    class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors">
+                                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    すべて飲んだ
+                                                </button>
                                             @endif
-                                        </h4>
+                                        </div>
 
                                         <div
                                             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
