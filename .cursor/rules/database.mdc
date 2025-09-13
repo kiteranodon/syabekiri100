@@ -6,4 +6,67 @@ alwaysApply: true
 
 ## テーブル定義
 
+### ユーザーテーブル (users)
+- id: 主キー
+- name: 名前
+- email: メールアドレス
+- password: パスワード
+- created_at/updated_at: タイムスタンプ
+
+### 日次ログテーブル (daily_logs)
+- id: 主キー
+- user_id: ユーザーID（外部キー）
+- date: 記録日（ユニーク制約 user_id + date）
+- mood_score: 気分スコア（1〜5）
+- free_note: 自由日記（140字以内）
+- created_at/updated_at: タイムスタンプ
+
+### 睡眠ログテーブル (sleep_logs)
+- id: 主キー
+- daily_log_id: 日次ログID（外部キー）
+- bedtime: 就寝時間
+- wakeup_time: 起床時間
+- sleep_hours: 睡眠時間（自動計算可）
+- sleep_quality: 睡眠の質（1〜5評価）
+- created_at/updated_at: タイムスタンプ
+
+### 服薬ログテーブル (medication_logs)
+- id: 主キー
+- daily_log_id: 日次ログID（外部キー）
+- medicine_name: 薬物名
+- taken: 服薬したか（true/false）
+- created_at/updated_at: タイムスタンプ
+
+### レポートテーブル (reports)
+- id: 主キー
+- user_id: ユーザーID（外部キー）
+- appointment_date: 診察日
+- from_date: 期間開始日
+- to_date: 期間終了日
+- avg_mood: 平均気分
+- mood_trend: 気分の傾向（上昇・下降・安定）
+- avg_sleep_hours: 平均睡眠時間
+- medication_adherence: 服薬遵守率
+- symptom_summary: 症状まとめ（TOP3などJSON）
+- free_summary: 本人が伝えたいこと
+- pdf_path: 生成PDFの保存先
+- previous_report_id: 過去レポートとの紐付け
+- created_at/updated_at: タイムスタンプ
+
+### 診察予約テーブル (appointments) - オプション
+- id: 主キー
+- user_id: ユーザーID（外部キー）
+- appointment_date: 診察日
+- doctor_name: 医師名（任意）
+- report_id: レポートID（外部キー）
+- memo: メモ（次回の課題など）
+- created_at/updated_at: タイムスタンプ
+
 ## シーディング
+
+### テストデータ
+- サンプルユーザーデータ
+- サンプル日次ログ
+- サンプル睡眠ログ
+- サンプル服薬ログ
+
