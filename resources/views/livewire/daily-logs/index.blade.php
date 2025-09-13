@@ -16,7 +16,7 @@ $logs = computed(function () {
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('日次ログ') }}
+                {{ __('気分記録') }}
             </h2>
             <div class="flex space-x-3">
                 <a href="{{ route('daily-logs.create') }}"
@@ -25,7 +25,7 @@ $logs = computed(function () {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
-                    新規作成
+                    今日の気分を記録
                 </a>
                 <a href="{{ route('daily-logs.create') }}"
                     class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700">
@@ -33,7 +33,7 @@ $logs = computed(function () {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M8 7V3a1 1 0 011-1h6a1 1 0 011 1v4h3a1 1 0 110 2h-1v9a2 2 0 01-2 2H7a2 2 0 01-2-2V9H4a1 1 0 110-2h4z" />
                     </svg>
-                    過去の記録
+                    過去の気分記録
                 </a>
             </div>
         </div>
@@ -119,12 +119,12 @@ $logs = computed(function () {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">日次ログがありません</h3>
-                            <p class="mt-1 text-sm text-gray-500">最初の日次ログを作成してみましょう。</p>
+                            <h3 class="mt-2 text-sm font-medium text-gray-900">気分記録がありません</h3>
+                            <p class="mt-1 text-sm text-gray-500">最初の気分記録を作成してみましょう。</p>
                             <div class="mt-6">
                                 <a href="{{ route('daily-logs.create') }}"
                                     class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
-                                    新規作成
+                                    今日の気分を記録
                                 </a>
                             </div>
                         </div>

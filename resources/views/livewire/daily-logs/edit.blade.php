@@ -33,14 +33,14 @@ $save = function () {
         'free_note' => $this->free_note,
     ]);
 
-    session()->flash('success', '日次ログを更新しました。');
+    session()->flash('success', '気分記録を更新しました。');
     return redirect()->route('daily-logs.index');
 };
 
 $delete = function () {
     $this->dailyLog->delete();
 
-    session()->flash('success', '日次ログを削除しました。');
+    session()->flash('success', '気分記録を削除しました。');
     return redirect()->route('daily-logs.index');
 };
 
@@ -49,7 +49,7 @@ $delete = function () {
 <div>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('日次ログ編集') }} - {{ $this->dailyLog->date->format('Y年m月d日') }}
+            {{ __('気分記録編集') }} - {{ $this->dailyLog->date->format('Y年m月d日') }}
         </h2>
     </x-slot>
 
@@ -138,7 +138,7 @@ $delete = function () {
                         <!-- ボタン -->
                         <div class="flex justify-between">
                             <button type="button" wire:click="delete"
-                                wire:confirm="この日次ログを削除してもよろしいですか？関連する睡眠ログや服薬記録も削除されます。"
+                                wire:confirm="この気分記録を削除してもよろしいですか？関連する睡眠ログや服薬記録も削除されます。"
                                 class="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                                 削除
                             </button>

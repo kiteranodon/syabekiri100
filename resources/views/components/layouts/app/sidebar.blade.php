@@ -21,7 +21,7 @@
 
             <flux:navlist.group :heading="__('記録管理')" class="grid">
                 <flux:navlist.item icon="book-open" :href="route('daily-logs.index')"
-                    :current="request()->routeIs('daily-logs.*')" wire:navigate>{{ __('日次ログ') }}</flux:navlist.item>
+                    :current="request()->routeIs('daily-logs.*')" wire:navigate>{{ __('気分記録') }}</flux:navlist.item>
                 <flux:navlist.item icon="moon" :href="route('sleep-logs.index')"
                     :current="request()->routeIs('sleep-logs.*')" wire:navigate>{{ __('睡眠ログ') }}</flux:navlist.item>
                 <flux:navlist.item icon="beaker" :href="route('medications.index')"

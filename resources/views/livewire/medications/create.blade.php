@@ -44,7 +44,7 @@ $save = function () {
 
     $dailyLogId = $this->selected_daily_log_id;
 
-    // 新しい日付が指定された場合は日次ログを作成
+    // 新しい日付が指定された場合は気分記録を作成
     if ($this->create_new_date) {
         $dailyLog = DailyLog::firstOrCreate([
             'user_id' => auth()->id(),
@@ -88,14 +88,14 @@ $save = function () {
                                 記録日の選択方法
                             </label>
 
-                            <!-- 既存の日次ログから選択 -->
+                            <!-- 既存の気分記録から選択 -->
                             <div>
                                 <label for="selected_daily_log_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    既存の日次ログから選択
+                                    既存の気分記録から選択
                                 </label>
                                 <select wire:model="selected_daily_log_id" id="selected_daily_log_id"
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 sm:text-sm">
-                                    <option value="">既存の日次ログを選択してください</option>
+                                    <option value="">既存の気分記録を選択してください</option>
                                     @foreach ($this->availableDailyLogs as $dailyLog)
                                         <option value="{{ $dailyLog->id }}">
                                             {{ $dailyLog->date->format('Y年m月d日 (D)') }}
@@ -123,7 +123,7 @@ $save = function () {
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                                 <p class="mt-1 text-xs text-gray-500">
-                                    新しい日付を指定した場合、日次ログも自動で作成されます
+                                    新しい日付を指定した場合、気分記録も自動で作成されます
                                 </p>
                             </div>
                         </div>

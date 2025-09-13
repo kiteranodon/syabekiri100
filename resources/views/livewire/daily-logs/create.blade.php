@@ -35,7 +35,7 @@ $save = function () {
         'free_note' => $this->free_note,
     ]);
 
-    session()->flash('success', '日次ログを保存しました。');
+    session()->flash('success', '気分記録を保存しました。');
     return redirect()->route('daily-logs.index');
 };
 
@@ -44,7 +44,7 @@ $save = function () {
 <div>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('日次ログ作成') }}
+            {{ __('今日の気分記録') }}
         </h2>
     </x-slot>
 

@@ -203,7 +203,7 @@ $avgSleepFormatted = computed(function () {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
-                            <span class="text-sm font-medium text-blue-900">日次記録</span>
+                            <span class="text-sm font-medium text-blue-900">気分記録</span>
                         </a>
 
                         <a href="{{ route('sleep-logs.create') }}"

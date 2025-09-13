@@ -89,7 +89,7 @@ $availableDates = computed(function () {
 $save = function () {
     $this->validate();
 
-    // 選択された日付の日次ログを取得または作成
+    // 選択された日付の気分記録を取得または作成
     $dailyLog = DailyLog::firstOrCreate([
         'user_id' => auth()->id(),
         'date' => $this->selected_date,
