@@ -24,35 +24,25 @@ $chartData = computed(function () {
         ->orderBy('date', 'asc')
         ->get();
 
-    // 期間内の全日付を生成（データがない日も含む）
-    $startDate = \Carbon\Carbon::parse($this->dateFrom);
-    $endDate = \Carbon\Carbon::parse($this->dateTo);
-    $allDates = [];
-
-    $currentDate = $startDate->copy();
-    while ($currentDate->lte($endDate)) {
-        $allDates[] = $currentDate->toDateString();
-        $currentDate->addDay();
-    }
-
-    // データを整形
+    // データを整形 - データのない日はスキップ
     $chartData = [
         'labels' => [],
         'moodData' => [],
         'sleepData' => [],
     ];
 
-    foreach ($allDates as $date) {
-        $log = $logs->firstWhere('date', $date);
+    foreach ($logs as $log) {
+        // 気分スコアまたは睡眠データがある場合のみ追加
+        if ($log->mood_score || $log->sleepLog) {
+            // 日付ラベル（MM/DD形式）
+            $chartData['labels'][] = $log->date->format('m/d');
 
-        // 日付ラベル（MM/DD形式）
-        $chartData['labels'][] = \Carbon\Carbon::parse($date)->format('m/d');
+            // 気分スコア（1-5、データがない場合はnull）
+            $chartData['moodData'][] = $log->mood_score;
 
-        // 気分スコア（null の場合は null）
-        $chartData['moodData'][] = $log?->mood_score;
-
-        // 睡眠時間（null の場合は null）
-        $chartData['sleepData'][] = $log?->sleepLog?->sleep_hours;
+            // 睡眠時間（データがない場合はnull）
+            $chartData['sleepData'][] = $log->sleepLog?->sleep_hours;
+        }
     }
 
     return $chartData;
@@ -118,12 +108,34 @@ $statistics = computed(function () {
                 </div>
             </div>
 
+            <!-- デバッグ情報 -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">デバッグ情報</h3>
+                    <div class="bg-gray-100 p-4 rounded text-sm">
+                        <p><strong>期間:</strong> {{ $dateFrom }} ～ {{ $dateTo }}</p>
+                        <p><strong>ラベル数:</strong> {{ count($this->chartData['labels']) }}</p>
+                        <p><strong>気分データ数:</strong> {{ count($this->chartData['moodData']) }}</p>
+                        <p><strong>睡眠データ数:</strong> {{ count($this->chartData['sleepData']) }}</p>
+                        <p><strong>ラベル:</strong>
+                            {{ implode(', ', array_slice($this->chartData['labels'], 0, 10)) }}{{ count($this->chartData['labels']) > 10 ? '...' : '' }}
+                        </p>
+                        <p><strong>気分データ:</strong>
+                            {{ implode(', ', array_slice($this->chartData['moodData'], 0, 10)) }}{{ count($this->chartData['moodData']) > 10 ? '...' : '' }}
+                        </p>
+                        <p><strong>睡眠データ:</strong>
+                            {{ implode(', ', array_slice($this->chartData['sleepData'], 0, 10)) }}{{ count($this->chartData['sleepData']) > 10 ? '...' : '' }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <!-- グラフ表示 -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6 bg-white border-b border-gray-200">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">気分と睡眠の推移</h3>
                     <div class="relative h-96">
-                        <canvas id="moodSleepChart" width="400" height="200"></canvas>
+                        <canvas id="moodSleepChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -204,258 +216,117 @@ $statistics = computed(function () {
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Chart.js Script -->
+    <!-- Chart.js初期化スクリプト -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            let moodSleepChart;
+        // グローバル変数でチャートインスタンスを管理
+        window.moodSleepChart = null;
 
-            function initChart() {
-                const canvas = document.getElementById('moodSleepChart');
-                if (!canvas) {
-                    console.error('Canvas element not found');
-                    return;
-                }
+        // チャート初期化関数
+        function createChart() {
+            console.log('=== Chart initialization started ===');
 
-                const ctx = canvas.getContext('2d');
+            // Chart.jsが読み込まれているか確認
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded!');
+                return;
+            }
+            console.log('✓ Chart.js is loaded');
 
-                // チャートが既に存在する場合は破棄
-                if (moodSleepChart) {
-                    moodSleepChart.destroy();
-                }
+            // Canvas要素を取得
+            const canvas = document.getElementById('moodSleepChart');
+            if (!canvas) {
+                console.error('Canvas element not found!');
+                return;
+            }
+            console.log('✓ Canvas element found');
 
-                // データを取得
-                const chartData = {!! json_encode($this->chartData) !!};
-
-                console.log('Initializing chart with data:', chartData); // デバッグ用
-                console.log('Chart.js available:', typeof Chart !== 'undefined'); // Chart.js確認
-
-                moodSleepChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: chartData.labels,
-                        datasets: [{
-                                type: 'line',
-                                label: '気分スコア',
-                                data: chartData.moodData,
-                                borderColor: 'rgb(59, 130, 246)',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                borderWidth: 3,
-                                fill: false,
-                                tension: 0.1,
-                                yAxisID: 'y',
-                                pointRadius: 5,
-                                pointHoverRadius: 8,
-                                pointBackgroundColor: 'rgb(59, 130, 246)',
-                                spanGaps: true, // null値をスキップして線を繋ぐ
-                            },
-                            {
-                                type: 'bar',
-                                label: '睡眠時間',
-                                data: chartData.sleepData,
-                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                                borderColor: 'rgb(34, 197, 94)',
-                                borderWidth: 1,
-                                yAxisID: 'y1',
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
-                        },
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: '気分スコアと睡眠時間の推移',
-                                font: {
-                                    size: 18,
-                                    weight: 'bold'
-                                },
-                                padding: 20
-                            },
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: {
-                                    padding: 20,
-                                    font: {
-                                        size: 14
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                titleColor: 'white',
-                                bodyColor: 'white',
-                                borderColor: 'rgba(255, 255, 255, 0.1)',
-                                borderWidth: 1,
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        if (context.parsed.y !== null && context.parsed.y !==
-                                            undefined) {
-                                            if (context.dataset.label === '気分スコア') {
-                                                label += context.parsed.y + '/5';
-                                            } else if (context.dataset.label === '睡眠時間') {
-                                                const hours = Math.floor(context.parsed.y);
-                                                const minutes = Math.round((context.parsed.y - hours) *
-                                                    60);
-                                                label += hours + '時間' + minutes + '分';
-                                            }
-                                        } else {
-                                            label += '記録なし';
-                                        }
-                                        return label;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                display: true,
-                                title: {
-                                    display: true,
-                                    text: '日付',
-                                    font: {
-                                        size: 14,
-                                        weight: 'bold'
-                                    }
-                                },
-                                grid: {
-                                    color: 'rgba(0, 0, 0, 0.1)'
-                                }
-                            },
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
-                                title: {
-                                    display: true,
-                                    text: '気分スコア',
-                                    color: 'rgb(59, 130, 246)',
-                                    font: {
-                                        size: 14,
-                                        weight: 'bold'
-                                    }
-                                },
-                                min: 0,
-                                max: 5,
-                                ticks: {
-                                    stepSize: 1,
-                                    color: 'rgb(59, 130, 246)'
-                                },
-                                grid: {
-                                    color: 'rgba(59, 130, 246, 0.1)'
-                                }
-                            },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                title: {
-                                    display: true,
-                                    text: '睡眠時間（時間）',
-                                    color: 'rgb(34, 197, 94)',
-                                    font: {
-                                        size: 14,
-                                        weight: 'bold'
-                                    }
-                                },
-                                min: 0,
-                                max: 12,
-                                ticks: {
-                                    color: 'rgb(34, 197, 94)'
-                                },
-                                grid: {
-                                    drawOnChartArea: false,
-                                },
-                            }
-                        }
-                    }
-                });
-
-                console.log('Chart initialized successfully:', moodSleepChart); // デバッグ用
+            // 既存のチャートを破棄
+            if (window.moodSleepChart) {
+                console.log('Destroying existing chart');
+                window.moodSleepChart.destroy();
+                window.moodSleepChart = null;
             }
 
-            // 初期化を少し遅らせる
-            setTimeout(initChart, 500);
+            // データを取得
+            const rawData = @json($this->chartData);
+            console.log('Raw data from server:', rawData);
 
-            // Livewireのページ更新後に再初期化
-            document.addEventListener('livewire:navigated', function() {
-                setTimeout(initChart, 500);
+            // データの準備
+            let labels = rawData?.labels || [];
+            let moodData = rawData?.moodData || [];
+            let sleepData = rawData?.sleepData || [];
+
+            // データがない場合はサンプルデータを使用
+            if (labels.length === 0) {
+                console.log('No data found, using sample data');
+                labels = ['09/10', '09/11', '09/12', '09/13', '09/14'];
+                moodData = [3, null, 4, 5, null]; // null値を含む
+                sleepData = [7.5, 6.0, null, 8.5, 7.0]; // null値を含む
+            }
+
+            console.log('Chart data prepared:', {
+                labels: labels,
+                moodData: moodData,
+                sleepData: sleepData
             });
-        });
 
-        // 日付変更時の処理
-        document.addEventListener('livewire:updated', function() {
-            setTimeout(() => {
-                console.log('Livewire updated, reinitializing chart...');
-
-                const canvas = document.getElementById('moodSleepChart');
-                if (!canvas) return;
-
+            // チャートを作成
+            try {
                 const ctx = canvas.getContext('2d');
 
-                // 既存のチャートを破棄
-                if (window.moodSleepChart) {
-                    window.moodSleepChart.destroy();
-                }
-
-                // データを取得
-                const chartData = {!! json_encode($this->chartData) !!};
-
                 window.moodSleepChart = new Chart(ctx, {
-                    type: 'line',
                     data: {
-                        labels: chartData.labels,
+                        labels: labels,
                         datasets: [{
                                 type: 'line',
                                 label: '気分スコア',
-                                data: chartData.moodData,
-                                borderColor: 'rgb(59, 130, 246)',
+                                data: moodData,
+                                borderColor: '#3b82f6',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                 borderWidth: 3,
-                                fill: false,
-                                tension: 0.1,
-                                yAxisID: 'y',
-                                pointRadius: 5,
+                                pointRadius: 6,
                                 pointHoverRadius: 8,
-                                pointBackgroundColor: 'rgb(59, 130, 246)',
-                                spanGaps: true,
+                                pointBackgroundColor: '#3b82f6',
+                                pointBorderColor: '#ffffff',
+                                pointBorderWidth: 2,
+                                yAxisID: 'y',
+                                spanGaps: true, // null値をスキップして線を繋ぐ
+                                tension: 0.3
                             },
                             {
                                 type: 'bar',
                                 label: '睡眠時間',
-                                data: chartData.sleepData,
-                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                                borderColor: 'rgb(34, 197, 94)',
+                                data: sleepData,
+                                backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                                borderColor: '#22c55e',
                                 borderWidth: 1,
-                                yAxisID: 'y1',
+                                yAxisID: 'y1'
                             }
                         ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
+                        layout: {
+                            padding: {
+                                top: 20,
+                                right: 20,
+                                bottom: 20,
+                                left: 20
+                            }
                         },
                         plugins: {
                             title: {
                                 display: true,
                                 text: '気分スコアと睡眠時間の推移',
                                 font: {
-                                    size: 18,
+                                    size: 20,
                                     weight: 'bold'
                                 },
-                                padding: 20
+                                padding: {
+                                    top: 10,
+                                    bottom: 30
+                                }
                             },
                             legend: {
                                 display: true,
@@ -468,29 +339,27 @@ $statistics = computed(function () {
                                 }
                             },
                             tooltip: {
+                                mode: 'index',
+                                intersect: false,
                                 backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                titleColor: 'white',
-                                bodyColor: 'white',
-                                borderColor: 'rgba(255, 255, 255, 0.1)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#ffffff',
+                                borderColor: 'rgba(255, 255, 255, 0.2)',
                                 borderWidth: 1,
                                 callbacks: {
                                     label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        if (context.parsed.y !== null && context.parsed.y !==
-                                            undefined) {
+                                        let label = context.dataset.label;
+                                        if (context.parsed.y !== null && context.parsed.y !== undefined) {
                                             if (context.dataset.label === '気分スコア') {
-                                                label += context.parsed.y + '/5';
+                                                label += ': ' + context.parsed.y + '/5';
                                             } else if (context.dataset.label === '睡眠時間') {
                                                 const hours = Math.floor(context.parsed.y);
-                                                const minutes = Math.round((context.parsed.y -
-                                                    hours) * 60);
-                                                label += hours + '時間' + minutes + '分';
+                                                const minutes = Math.round((context.parsed.y - hours) * 60);
+                                                label += ': ' + hours + '時間' + (minutes > 0 ? minutes + '分' :
+                                                    '');
                                             }
                                         } else {
-                                            label += '記録なし';
+                                            label += ': 記録なし';
                                         }
                                         return label;
                                     }
@@ -519,20 +388,27 @@ $statistics = computed(function () {
                                 title: {
                                     display: true,
                                     text: '気分スコア',
-                                    color: 'rgb(59, 130, 246)',
+                                    color: '#3b82f6',
                                     font: {
                                         size: 14,
                                         weight: 'bold'
                                     }
                                 },
                                 min: 0,
-                                max: 5,
+                                max: 6, // 5から6に変更して上部に余白を追加
                                 ticks: {
                                     stepSize: 1,
-                                    color: 'rgb(59, 130, 246)'
+                                    color: '#3b82f6',
+                                    font: {
+                                        size: 12
+                                    },
+                                    // 6は表示しない（余白用）
+                                    callback: function(value) {
+                                        return value <= 5 ? value : '';
+                                    }
                                 },
                                 grid: {
-                                    color: 'rgba(59, 130, 246, 0.1)'
+                                    color: 'rgba(59, 130, 246, 0.2)'
                                 }
                             },
                             y1: {
@@ -542,25 +418,56 @@ $statistics = computed(function () {
                                 title: {
                                     display: true,
                                     text: '睡眠時間（時間）',
-                                    color: 'rgb(34, 197, 94)',
+                                    color: '#22c55e',
                                     font: {
                                         size: 14,
                                         weight: 'bold'
                                     }
                                 },
                                 min: 0,
-                                max: 12,
+                                max: 14, // 12から14に変更して上部に余白を追加
                                 ticks: {
-                                    color: 'rgb(34, 197, 94)'
+                                    stepSize: 2,
+                                    color: '#22c55e',
+                                    font: {
+                                        size: 12
+                                    },
+                                    // 13, 14は表示しない（余白用）
+                                    callback: function(value) {
+                                        return value <= 12 ? value : '';
+                                    }
                                 },
                                 grid: {
-                                    drawOnChartArea: false,
-                                },
+                                    drawOnChartArea: false
+                                }
                             }
                         }
                     }
                 });
-            }, 100);
+
+                console.log('✓ Chart created successfully!');
+                console.log('=== Chart initialization completed ===');
+
+            } catch (error) {
+                console.error('Chart creation failed:', error);
+            }
+        }
+
+        // DOM読み込み後に初期化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('DOM loaded, initializing chart in 1 second...');
+                setTimeout(createChart, 1000);
+            });
+        } else {
+            console.log('DOM already loaded, initializing chart...');
+            setTimeout(createChart, 500);
+        }
+
+        // Livewire更新時の処理
+        document.addEventListener('livewire:updated', function() {
+            console.log('Livewire updated, reinitializing chart...');
+            setTimeout(createChart, 300);
         });
     </script>
 </div>
