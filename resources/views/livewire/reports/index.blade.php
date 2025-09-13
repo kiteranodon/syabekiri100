@@ -131,6 +131,197 @@ $statistics = computed(function () {
     ];
 });
 
+// ユーザー状態要約を生成
+$userSummary = computed(function () {
+    $logs = DailyLog::where('user_id', auth()->id())
+        ->whereBetween('date', [$this->dateFrom, $this->dateTo])
+        ->with(['sleepLog', 'medicationLogs'])
+        ->orderBy('date', 'desc')
+        ->get();
+
+    if ($logs->isEmpty()) {
+        return '選択された期間にはデータが記録されていません。';
+    }
+
+    $statistics = $this->statistics;
+    $periodName = $this->selectedPeriod === 'custom' ? 'カスタム期間' : $this->periodTabs[$this->selectedPeriod];
+
+    // 自由日記の分析
+    $diaryNotes = $logs->whereNotNull('free_note')->pluck('free_note');
+    $moodTrend = $this->analyzeMoodTrend($logs);
+    $sleepPattern = $this->analyzeSleepPattern($logs);
+    $diaryInsights = $this->analyzeDiaryContent($diaryNotes);
+
+    return $this->generateSummary($periodName, $statistics, $moodTrend, $sleepPattern, $diaryInsights);
+});
+
+// 気分の傾向を分析
+$analyzeMoodTrend = function ($logs) {
+    $moodScores = $logs->whereNotNull('mood_score')->pluck('mood_score', 'date')->sortKeys();
+
+    if ($moodScores->count() < 2) {
+        return '安定';
+    }
+
+    $recent = $moodScores->take(-7)->avg(); // 最近7日の平均
+    $earlier = $moodScores->take(7)->avg(); // 最初7日の平均
+
+    $diff = $recent - $earlier;
+
+    if ($diff > 0.5) {
+        return '改善傾向';
+    } elseif ($diff < -0.5) {
+        return '下降傾向';
+    } else {
+        return '安定';
+    }
+};
+
+// 睡眠パターンを分析
+$analyzeSleepPattern = function ($logs) {
+    $sleepLogs = $logs->filter(fn($log) => $log->sleepLog)->map(fn($log) => $log->sleepLog);
+
+    if ($sleepLogs->isEmpty()) {
+        return '睡眠データが不足しています';
+    }
+
+    $avgHours = $sleepLogs->avg('sleep_hours');
+    $avgQuality = $sleepLogs->avg('sleep_quality');
+
+    if ($avgHours >= 7 && $avgQuality >= 4) {
+        return '良好な睡眠状態';
+    } elseif ($avgHours >= 6 && $avgQuality >= 3) {
+        return '普通の睡眠状態';
+    } else {
+        return '睡眠の改善が必要';
+    }
+};
+
+// 日記内容を分析
+$analyzeDiaryContent = function ($diaryNotes) {
+    if ($diaryNotes->isEmpty()) {
+        return ['sentiment' => 'neutral', 'keywords' => []];
+    }
+
+    $allText = $diaryNotes->implode(' ');
+
+    // ポジティブ・ネガティブキーワード分析
+    $positiveWords = ['良い', '元気', '幸せ', '調子', '穏やか', '最高', '満足', '楽しい', '嬉しい'];
+    $negativeWords = ['辛い', '疲れ', '沈ん', '不安', 'ストレス', '体調', '優れ', 'やる気'];
+
+    $positiveCount = 0;
+    $negativeCount = 0;
+    $foundKeywords = [];
+
+    foreach ($positiveWords as $word) {
+        $count = substr_count($allText, $word);
+        if ($count > 0) {
+            $positiveCount += $count;
+            $foundKeywords[] = $word;
+        }
+    }
+
+    foreach ($negativeWords as $word) {
+        $count = substr_count($allText, $word);
+        if ($count > 0) {
+            $negativeCount += $count;
+            $foundKeywords[] = $word;
+        }
+    }
+
+    $sentiment = 'neutral';
+    if ($positiveCount > $negativeCount * 1.5) {
+        $sentiment = 'positive';
+    } elseif ($negativeCount > $positiveCount * 1.5) {
+        $sentiment = 'negative';
+    }
+
+    return [
+        'sentiment' => $sentiment,
+        'keywords' => array_slice(array_unique($foundKeywords), 0, 5),
+        'positive_count' => $positiveCount,
+        'negative_count' => $negativeCount,
+    ];
+};
+
+// 要約文を生成
+$generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern, $diaryInsights) {
+    $summary = "{$periodName}の記録を分析した結果、";
+
+    // 気分の状況
+    if ($statistics['mood_avg']) {
+        $moodLevel = '';
+        if ($statistics['mood_avg'] >= 4) {
+            $moodLevel = '良好';
+        } elseif ($statistics['mood_avg'] >= 3) {
+            $moodLevel = '安定';
+        } else {
+            $moodLevel = 'やや低調';
+        }
+        $summary .= "気分は{$moodLevel}で{$moodTrend}を示しています。";
+    }
+
+    // 睡眠の状況
+    if ($statistics['sleep_avg']) {
+        $sleepHours = round($statistics['sleep_avg'], 1);
+        $summary .= "睡眠時間は平均{$sleepHours}時間で、{$sleepPattern}です。";
+    }
+
+    // 服薬の状況
+    if ($statistics['adherence_rate'] > 0) {
+        $adherenceLevel = '';
+        if ($statistics['adherence_rate'] >= 90) {
+            $adherenceLevel = '良好';
+        } elseif ($statistics['adherence_rate'] >= 75) {
+            $adherenceLevel = '概ね良好';
+        } else {
+            $adherenceLevel = '改善の余地';
+        }
+        $summary .= "服薬遵守率は{$statistics['adherence_rate']}%で{$adherenceLevel}です。";
+    }
+
+    // 日記の内容分析
+    $sentiment = $diaryInsights['sentiment'];
+    $keywords = $diaryInsights['keywords'];
+
+    if ($sentiment === 'positive') {
+        $summary .= '日記からは前向きな気持ちが多く感じられ、';
+    } elseif ($sentiment === 'negative') {
+        $summary .= '日記からは不安や疲労感が表れており、';
+    } else {
+        $summary .= '日記の内容は比較的安定しており、';
+    }
+
+    if (!empty($keywords)) {
+        $keywordStr = implode('、', array_slice($keywords, 0, 3));
+        $summary .= "「{$keywordStr}」といった表現が特徴的です。";
+    } else {
+        $summary .= '日常的な内容が記録されています。';
+    }
+
+    // 総合的な評価
+    $overallScore = 0;
+    if ($statistics['mood_avg']) {
+        $overallScore += ($statistics['mood_avg'] / 5) * 30;
+    }
+    if ($statistics['sleep_avg']) {
+        $overallScore += min($statistics['sleep_avg'] / 8, 1) * 30;
+    }
+    if ($statistics['adherence_rate']) {
+        $overallScore += ($statistics['adherence_rate'] / 100) * 40;
+    }
+
+    if ($overallScore >= 80) {
+        $summary .= '全体的に良好な状態を維持されています。';
+    } elseif ($overallScore >= 60) {
+        $summary .= '概ね安定した状態ですが、さらなる改善の可能性があります。';
+    } else {
+        $summary .= '体調管理により一層の注意を払うことをお勧めします。';
+    }
+
+    return mb_substr($summary, 0, 300);
+};
+
 ?>
 
 <div>
@@ -262,6 +453,44 @@ $statistics = computed(function () {
                                 <p class="text-2xl font-semibold text-orange-600">
                                     {{ $this->statistics['total_entries'] }}日</p>
                                 <p class="text-xs text-orange-700 mt-1">{{ $this->statistics['period_days'] }}日中</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ユーザー状態要約 -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        状態要約
+                    </h3>
+                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 border border-indigo-200">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <h4 class="text-base font-medium text-gray-900 mb-2">
+                                    {{ $selectedPeriod === 'custom' ? 'カスタム期間' : $this->periodTabs[$selectedPeriod] }}の総合分析
+                                </h4>
+                                <p class="text-gray-700 leading-relaxed">
+                                    {{ $this->userSummary }}
+                                </p>
+                                <div class="mt-3 text-xs text-gray-500">
+                                    ※ この要約は記録された気分・睡眠・服薬データと自由日記の内容を分析して生成されています
+                                </div>
                             </div>
                         </div>
                     </div>
