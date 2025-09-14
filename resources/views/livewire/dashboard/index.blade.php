@@ -63,6 +63,25 @@ $avgSleepFormatted = computed(function () {
     return $hours . '時間' . $minutes . '分';
 });
 
+// 今日の定時服薬遵守率を計算
+$todayRegularAdherenceRate = computed(function () {
+    if (!$this->todayLog || $this->todayLog->medicationLogs->isEmpty()) {
+        return 0;
+    }
+
+    // 頓服薬を除外した定時薬のみを対象とする
+    $regularMedications = $this->todayLog->medicationLogs->where('timing', '!=', 'as_needed');
+
+    if ($regularMedications->isEmpty()) {
+        return 0;
+    }
+
+    $totalRegular = $regularMedications->count();
+    $takenRegular = $regularMedications->where('taken', true)->count();
+
+    return $totalRegular > 0 ? round(($takenRegular / $totalRegular) * 100, 1) : 0;
+});
+
 ?>
 
 <div>
@@ -203,9 +222,19 @@ $avgSleepFormatted = computed(function () {
                                     </div>
                                     <div class="ml-3">
                                         <p class="text-sm font-medium text-purple-900">服薬状況</p>
-                                        <p class="text-2xl font-semibold text-purple-600">
-                                            {{ $this->todayLog->medicationLogs->where('taken', true)->count() }}/{{ $this->todayLog->medicationLogs->count() }}
-                                        </p>
+                                        <div class="flex items-center space-x-3">
+                                            <p class="text-2xl font-semibold text-purple-600">
+                                                {{ $this->todayLog->medicationLogs->where('taken', true)->count() }}/{{ $this->todayLog->medicationLogs->count() }}
+                                            </p>
+                                            <div class="text-right">
+                                                <p class="text-lg font-semibold text-purple-700">
+                                                    {{ $this->todayRegularAdherenceRate }}%
+                                                </p>
+                                                <p class="text-xs text-purple-600">
+                                                    定時服薬遵守率
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

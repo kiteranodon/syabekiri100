@@ -73,7 +73,7 @@ $copyYesterdayMedications = function () {
             ]);
         }
 
-        session()->flash('info', '昨日の薬のラインナップを今日にコピーしました。');
+        session()->flash('info', '昨日の薬のラインナップを今日にコピーしました。すべて未服薬状態になっています。');
     }
 };
 
@@ -81,7 +81,7 @@ $addNewMedication = function ($medicineName = '', $timing = '') {
     $this->newMedications[] = [
         'medicine_name' => $medicineName,
         'timing' => $timing,
-        'taken' => false,
+        'taken' => false, // 新しい薬は未服薬状態でデフォルト
     ];
 };
 
@@ -170,7 +170,7 @@ $save = function () {
                                     @if (session()->has('info'))
                                         {{ session('info') }}
                                     @else
-                                        各薬にチェックを入れて服薬状況を記録してください。昨日の薬のラインナップが自動的に表示されます。
+                                        各薬の服薬状況を記録してください。初回表示時はすべて「No」（未服薬）に設定されています。昨日の薬のラインナップが自動的に表示されます。
                                     @endif
                                 </p>
                             </div>
