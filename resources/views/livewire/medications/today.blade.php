@@ -29,7 +29,16 @@ $loadTodayData = function () {
     ]);
 
     // 今日の服薬記録を取得
-    $this->medications = $this->todayDailyLog->medicationLogs
+    $existingMedications = $this->todayDailyLog->medicationLogs;
+
+    // 今日の服薬記録がない場合、昨日の薬のラインナップをコピー
+    if ($existingMedications->isEmpty()) {
+        $this->copyYesterdayMedications();
+        // 再度取得
+        $existingMedications = $this->todayDailyLog->fresh()->medicationLogs;
+    }
+
+    $this->medications = $existingMedications
         ->map(function ($log) {
             return [
                 'id' => $log->id,
@@ -46,6 +55,28 @@ $loadTodayData = function () {
     }
 };
 
+$copyYesterdayMedications = function () {
+    // 昨日の日次ログを取得
+    $yesterdayLog = DailyLog::where('user_id', auth()->id())
+        ->where('date', now()->subDay()->toDateString())
+        ->with('medicationLogs')
+        ->first();
+
+    if ($yesterdayLog && $yesterdayLog->medicationLogs->isNotEmpty()) {
+        // 昨日の服薬記録を今日にコピー（服薬状況はリセット）
+        foreach ($yesterdayLog->medicationLogs as $yesterdayMed) {
+            MedicationLog::create([
+                'daily_log_id' => $this->todayDailyLog->id,
+                'medicine_name' => $yesterdayMed->medicine_name,
+                'timing' => $yesterdayMed->timing,
+                'taken' => false, // 未服薬状態でコピー
+            ]);
+        }
+
+        session()->flash('info', '昨日の薬のラインナップを今日にコピーしました。');
+    }
+};
+
 $addNewMedication = function ($medicineName = '', $timing = '') {
     $this->newMedications[] = [
         'medicine_name' => $medicineName,
@@ -57,6 +88,31 @@ $addNewMedication = function ($medicineName = '', $timing = '') {
 $removeNewMedication = function ($index) {
     unset($this->newMedications[$index]);
     $this->newMedications = array_values($this->newMedications);
+};
+
+// 時間帯別一括服薬
+$takeAllMedicationsInTiming = function ($timing) {
+    if (!$this->todayDailyLog) {
+        session()->flash('error', '今日の記録が見つかりません。');
+        return;
+    }
+
+    $updatedCount = 0;
+    foreach ($this->medications as $index => $medication) {
+        if ($medication['timing'] === $timing && !$medication['taken']) {
+            // データベースを更新
+            MedicationLog::where('id', $medication['id'])->update(['taken' => true]);
+            // ローカル配列も更新
+            $this->medications[$index]['taken'] = true;
+            $updatedCount++;
+        }
+    }
+
+    if ($updatedCount > 0) {
+        session()->flash('success', $updatedCount . '種類の薬を服薬済みにしました。');
+    } else {
+        session()->flash('info', 'この時間帯に未服薬の薬がありません。');
+    }
 };
 
 $save = function () {
@@ -92,7 +148,7 @@ $save = function () {
 <div>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('今日の服薬記録') }} - {{ now()->format('Y年m月d日 (D)') }}
+            {{ __('今日の服薬チェック') }} - {{ now()->format('Y年m月d日 (D)') }}
         </h2>
     </x-slot>
 
@@ -100,6 +156,27 @@ $save = function () {
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 bg-white border-b border-gray-200">
+                    <!-- 説明文 -->
+                    <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-start">
+                            <svg class="w-5 h-5 text-blue-600 mr-2 mt-0.5" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <h4 class="text-sm font-medium text-blue-900 mb-1">今日の服薬チェック</h4>
+                                <p class="text-sm text-blue-700">
+                                    @if (session()->has('info'))
+                                        {{ session('info') }}
+                                    @else
+                                        各薬にチェックを入れて服薬状況を記録してください。昨日の薬のラインナップが自動的に表示されます。
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <form wire:submit="save" class="space-y-8">
                         <!-- 既存の服薬記録 -->
                         @if (!empty($medications))
@@ -130,19 +207,34 @@ $save = function () {
                                         @if (!empty($group['medications']))
                                             <div
                                                 class="border border-gray-200 rounded-lg p-4 {{ $timingKey === 'as_needed' ? 'bg-yellow-50' : 'bg-gray-50' }}">
-                                                <h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                                                    <span class="mr-2">{{ $group['icon'] }}</span>
-                                                    {{ $group['label'] }}
-                                                    <span class="ml-2 text-sm text-gray-500">
-                                                        ({{ count($group['medications']) }}種類)
-                                                    </span>
-                                                    @if ($timingKey === 'as_needed')
-                                                        <span
-                                                            class="ml-2 text-xs text-yellow-700 bg-yellow-200 px-2 py-1 rounded">
-                                                            遵守率対象外
+                                                <div class="flex justify-between items-center mb-4">
+                                                    <h4 class="text-lg font-medium text-gray-900 flex items-center">
+                                                        <span class="mr-2">{{ $group['icon'] }}</span>
+                                                        {{ $group['label'] }}
+                                                        <span class="ml-2 text-sm text-gray-500">
+                                                            ({{ count($group['medications']) }}種類)
                                                         </span>
+                                                        @if ($timingKey === 'as_needed')
+                                                            <span
+                                                                class="ml-2 text-xs text-yellow-700 bg-yellow-200 px-2 py-1 rounded">
+                                                                遵守率対象外
+                                                            </span>
+                                                        @endif
+                                                    </h4>
+
+                                                    @if ($timingKey !== 'as_needed' && count($group['medications']) > 0)
+                                                        <button
+                                                            wire:click="takeAllMedicationsInTiming('{{ $timingKey }}')"
+                                                            class="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors">
+                                                            <svg class="w-4 h-4 mr-1" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                                    stroke-width="2" d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                            すべて飲んだ
+                                                        </button>
                                                     @endif
-                                                </h4>
+                                                </div>
 
                                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     @foreach ($group['medications'] as $item)

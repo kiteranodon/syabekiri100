@@ -29,6 +29,33 @@ mount(function () {
     // URLパラメータから日付を取得、なければ今日をデフォルト
     $this->selected_date = request('date', now()->toDateString());
     $this->flow = request('flow');
+
+    // 既存データがある場合はフォームに表示
+    $dailyLog = DailyLog::where('user_id', auth()->id())
+        ->where('date', $this->selected_date)
+        ->with('sleepLog')
+        ->first();
+
+    if ($dailyLog && $dailyLog->sleepLog) {
+        $sleepLog = $dailyLog->sleepLog;
+        $this->bedtime = $sleepLog->bedtime ? $sleepLog->bedtime->format('H:i') : null;
+        $this->wakeup_time = $sleepLog->wakeup_time ? $sleepLog->wakeup_time->format('H:i') : null;
+        $this->sleep_hours = $sleepLog->sleep_hours;
+        $this->sleep_quality = $sleepLog->sleep_quality;
+
+        // 時間と分を分離
+        if ($this->bedtime) {
+            $bedtimeParts = explode(':', $this->bedtime);
+            $this->bedtime_hour = $bedtimeParts[0];
+            $this->bedtime_minute = $bedtimeParts[1];
+        }
+
+        if ($this->wakeup_time) {
+            $wakeupParts = explode(':', $this->wakeup_time);
+            $this->wakeup_hour = $wakeupParts[0];
+            $this->wakeup_minute = $wakeupParts[1];
+        }
+    }
 });
 
 // 就寝時間を更新
@@ -99,10 +126,24 @@ $save = function () {
 
     // 既に睡眠ログが存在するかチェック
     if ($dailyLog->sleepLog) {
-        session()->flash('error', 'この日付の睡眠ログは既に存在します。');
-        return;
+        // 既存データを更新
+        $dailyLog->sleepLog->update([
+            'bedtime' => $this->bedtime,
+            'wakeup_time' => $this->wakeup_time,
+            'sleep_hours' => $this->sleep_hours,
+            'sleep_quality' => $this->sleep_quality,
+        ]);
+
+        if ($this->flow === 'batch') {
+            session()->flash('success', '睡眠ログを更新しました。次に服薬管理を確認してください。');
+            return redirect()->route('medications.index', ['flow' => 'batch', 'date' => $this->selected_date]);
+        }
+
+        session()->flash('success', '睡眠ログを更新しました。');
+        return redirect()->route('sleep-logs.index');
     }
 
+    // 新規作成
     $sleepLog = SleepLog::create([
         'daily_log_id' => $dailyLog->id,
         'bedtime' => $this->bedtime,

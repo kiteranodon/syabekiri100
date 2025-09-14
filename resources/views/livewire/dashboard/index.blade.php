@@ -1,15 +1,31 @@
 <?php
 
-use function Livewire\Volt\{state, computed};
+use function Livewire\Volt\{state, computed, mount, on};
 use App\Models\DailyLog;
 use App\Models\SleepLog;
 use App\Models\MedicationLog;
 
 state(['selectedDate' => now()->toDateString()]);
 
+mount(function () {
+    // まとめて記入完了時のリフレッシュ
+    if (session()->has('batch_completed')) {
+        session()->forget('batch_completed');
+    }
+});
+
+// データリフレッシュ機能
+$refreshData = function () {
+    // 選択日付を更新してcomputedプロパティを強制的に再計算
+    $this->selectedDate = now()->toDateString();
+
+    // 成功メッセージを表示
+    session()->flash('success', 'データを更新しました。');
+};
+
 $todayLog = computed(function () {
     return DailyLog::where('user_id', auth()->id())
-        ->where('date', $this->selectedDate)
+        ->where('date', $this->selectedDate) // selectedDateを使用してリアクティブに
         ->with(['sleepLog', 'medicationLogs'])
         ->first();
 });
@@ -51,9 +67,19 @@ $avgSleepFormatted = computed(function () {
 
 <div>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('ホーム') }}
-        </h2>
+        <div class="flex justify-between items-center">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                {{ __('ホーム') }}
+            </h2>
+            <button wire:click="refreshData"
+                class="inline-flex items-center px-3 py-2 bg-gray-100 border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest hover:bg-gray-200 focus:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                更新
+            </button>
+        </div>
     </x-slot>
 
     <div class="py-12">
@@ -101,7 +127,7 @@ $avgSleepFormatted = computed(function () {
                                 <span class="text-sm font-medium text-green-900">睡眠記録</span>
                             </a>
 
-                            <a href="{{ route('medications.index') }}"
+                            <a href="{{ route('medications.today') }}"
                                 class="flex items-center p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
                                 <svg class="h-5 w-5 text-purple-600 mr-2" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">

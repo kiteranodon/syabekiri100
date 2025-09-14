@@ -18,6 +18,16 @@ rules([
 
 mount(function () {
     $this->flow = request('flow');
+
+    // 既存データがある場合はフォームに表示
+    $existingLog = DailyLog::where('user_id', auth()->id())
+        ->where('date', $this->date)
+        ->first();
+
+    if ($existingLog) {
+        $this->mood_score = $existingLog->mood_score;
+        $this->free_note = $existingLog->free_note;
+    }
 });
 
 $save = function () {
@@ -29,10 +39,22 @@ $save = function () {
         ->first();
 
     if ($existingLog) {
-        session()->flash('error', 'この日の記録は既に存在します。編集ページから更新してください。');
-        return;
+        // 既存データを更新
+        $existingLog->update([
+            'mood_score' => $this->mood_score,
+            'free_note' => $this->free_note,
+        ]);
+
+        if ($this->flow === 'batch') {
+            session()->flash('success', '気分記録を更新しました。次に睡眠記録を入力してください。');
+            return redirect()->route('sleep-logs.create', ['flow' => 'batch', 'date' => $this->date]);
+        }
+
+        session()->flash('success', '気分記録を更新しました。');
+        return redirect()->route('daily-logs.index');
     }
 
+    // 新規作成
     DailyLog::create([
         'user_id' => auth()->id(),
         'date' => $this->date,

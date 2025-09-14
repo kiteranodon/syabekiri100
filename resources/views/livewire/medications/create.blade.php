@@ -53,6 +53,10 @@ $save = function () {
         $dailyLogId = $dailyLog->id;
     }
 
+    // 既存の服薬記録を削除（同じ日付の記録を上書きするため）
+    MedicationLog::where('daily_log_id', $dailyLogId)->delete();
+
+    // 新しい服薬記録を作成
     foreach ($this->medications as $medication) {
         if (!empty($medication['medicine_name']) && !empty($medication['timing'])) {
             MedicationLog::create([
