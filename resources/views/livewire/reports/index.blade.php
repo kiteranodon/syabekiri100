@@ -7,6 +7,7 @@ use App\Models\MedicationLog;
 
 state([
     'dateFrom' => null,
+
     'dateTo' => null,
     'selectedPeriod' => '1month', // デフォルトは1ヶ月
 ]);
@@ -396,164 +397,180 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                 </div>
             </div>
 
-            <!-- グラフ表示 -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6 bg-white border-b border-gray-200">
-                    <!-- 期間選択タブ -->
-                    <div class="flex flex-wrap justify-center gap-1 mb-6 no-print">
-                        @foreach ($this->periodTabs as $key => $label)
-                            <button wire:click="setPeriod('{{ $key }}')" wire:loading.attr="disabled"
-                                wire:loading.class="opacity-50 cursor-not-allowed" wire:target="setPeriod"
-                                class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 
-                                    {{ $selectedPeriod === $key
-                                        ? 'bg-blue-600 text-white shadow-md'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
-                                <span wire:loading.remove wire:target="setPeriod">{{ $label }}</span>
-                                <span wire:loading wire:target="setPeriod" class="flex items-center">
-                                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
-                                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10"
-                                            stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                        </path>
-                                    </svg>
-                                    {{ $label }}
-                                </span>
-                            </button>
-                        @endforeach
-                    </div>
+            <!-- ===== 印刷レイアウトコンテナ ===== -->
+            <div class="print-container">
 
-                    <h3 class="text-lg font-medium text-gray-900 mb-6 text-center">気分と睡眠の推移</h3>
-                    <div class="relative h-[600px]">
-                        <!-- ローディング表示 -->
-                        <div wire:loading wire:target="setPeriod,updatedDateFrom,updatedDateTo"
-                            class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
-                            <div class="text-center">
-                                <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2"
-                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10"
-                                        stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                    </path>
+                <!-- ===== 左カラム ===== -->
+                <div class="print-left">
+
+                    <!-- グラフ表示セクション -->
+                    <section id="chart-section" class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                        <div class="p-6 bg-white border-b border-gray-200">
+                            <!-- 期間選択タブ -->
+                            <div class="flex flex-wrap justify-center gap-1 mb-6 no-print">
+                                @foreach ($this->periodTabs as $key => $label)
+                                    <button wire:click="setPeriod('{{ $key }}')" wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-50 cursor-not-allowed" wire:target="setPeriod"
+                                        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200
+                                            {{ $selectedPeriod === $key
+                                                ? 'bg-blue-600 text-white shadow-md'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                        <span wire:loading.remove wire:target="setPeriod">{{ $label }}</span>
+                                        <span wire:loading wire:target="setPeriod" class="flex items-center">
+                                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+                                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10"
+                                                    stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                                </path>
+                                            </svg>
+                                            {{ $label }}
+                                        </span>
+                                    </button>
+                                @endforeach
+                            </div>
+
+                            <h3 class="text-lg font-medium text-gray-900 mb-6 text-center">気分と睡眠の推移</h3>
+                            <div class="relative h-[600px]">
+                                <!-- ローディング表示 -->
+                                <div wire:loading wire:target="setPeriod,updatedDateFrom,updatedDateTo"
+                                    class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+                                    <div class="text-center">
+                                        <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2"
+                                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10"
+                                                stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                            </path>
+                                        </svg>
+                                        <p class="text-sm text-gray-600">チャートを更新中...</p>
+                                    </div>
+                                </div>
+                                <canvas id="moodSleepChart"></canvas>
+                            </div>
+                        </div>
+                    </section>
+
+                </div><!-- /.print-left -->
+
+                <!-- ===== 右カラム ===== -->
+                <div class="print-right">
+
+                    <!-- 統計情報セクション (ここに移動) -->
+                    <section id="statistics-section" class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 bg-white border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">統計情報</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <!-- 気分統計 -->
+                                <div class="text-center">
+                                    <div class="bg-blue-50 rounded-lg p-4">
+                                        <h4 class="text-sm font-medium text-blue-900 mb-2">気分スコア</h4>
+                                        @if ($this->statistics['mood_avg'])
+                                            <p class="text-2xl font-semibold text-blue-600 flex items-center justify-center">
+                                                <x-mood-icon :score="round($this->statistics['mood_avg'])" size="2xl" />
+                                                <span
+                                                    class="ml-2">{{ number_format($this->statistics['mood_avg'], 1) }}</span>
+                                            </p>
+                                            <p class="text-xs text-blue-700 mt-1">
+                                                最高: {{ $this->statistics['mood_max'] }} / 最低:
+                                                {{ $this->statistics['mood_min'] }}
+                                            </p>
+                                        @else
+                                            <p class="text-2xl font-semibold text-gray-400">なし</p>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <!-- 睡眠統計 -->
+                                <div class="text-center">
+                                    <div class="bg-green-50 rounded-lg p-4">
+                                        <h4 class="text-sm font-medium text-green-900 mb-2">平均睡眠時間</h4>
+                                        @if ($this->statistics['sleep_avg'])
+                                            @php
+                                                $avgSleep = $this->statistics['sleep_avg'];
+                                                $totalMinutes = round($avgSleep * 60);
+                                                $hours = floor($totalMinutes / 60);
+                                                $minutes = $totalMinutes % 60;
+                                            @endphp
+                                            <p class="text-2xl font-semibold text-green-600">
+                                                {{ $hours }}時間{{ $minutes }}分</p>
+                                            <p class="text-xs text-green-700 mt-1">
+                                                最長: {{ number_format($this->statistics['sleep_max'], 1) }}h /
+                                                最短: {{ number_format($this->statistics['sleep_min'], 1) }}h
+                                            </p>
+                                        @else
+                                            <p class="text-2xl font-semibold text-gray-400">なし</p>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <!-- 服薬遵守率 -->
+                                <div class="text-center">
+                                    <div class="bg-purple-50 rounded-lg p-4">
+                                        <h4 class="text-sm font-medium text-purple-900 mb-2">服薬遵守率</h4>
+                                        <p class="text-2xl font-semibold text-purple-600">
+                                            {{ $this->statistics['adherence_rate'] }}%</p>
+                                        <p class="text-xs text-purple-700 mt-1">定時薬のみ</p>
+                                    </div>
+                                </div>
+
+                                <!-- 記録日数 -->
+                                <div class="text-center">
+                                    <div class="bg-orange-50 rounded-lg p-4">
+                                        <h4 class="text-sm font-medium text-orange-900 mb-2">記録日数</h4>
+                                        <p class="text-2xl font-semibold text-orange-600">
+                                            {{ $this->statistics['total_entries'] }}日</p>
+                                        <p class="text-xs text-orange-700 mt-1">{{ $this->statistics['period_days'] }}日中</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ユーザー状態要約セクション -->
+                    <section id="summary-section" class="bg-white overflow-hidden shadow-sm sm:rounded-lg h-full">
+                        <div class="p-6 bg-white border-b border-gray-200 h-full flex flex-col">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <p class="text-sm text-gray-600">チャートを更新中...</p>
-                            </div>
-                        </div>
-                        <canvas id="moodSleepChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 統計情報 -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 bg-white border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">統計情報</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <!-- 気分統計 -->
-                        <div class="text-center">
-                            <div class="bg-blue-50 rounded-lg p-4">
-                                <h4 class="text-sm font-medium text-blue-900 mb-2">気分スコア</h4>
-                                @if ($this->statistics['mood_avg'])
-                                    <p class="text-2xl font-semibold text-blue-600 flex items-center justify-center">
-                                        <x-mood-icon :score="round($this->statistics['mood_avg'])" size="2xl" />
-                                        <span
-                                            class="ml-2">{{ number_format($this->statistics['mood_avg'], 1) }}</span>
-                                    </p>
-                                    <p class="text-xs text-blue-700 mt-1">
-                                        最高: {{ $this->statistics['mood_max'] }} / 最低:
-                                        {{ $this->statistics['mood_min'] }}
-                                    </p>
-                                @else
-                                    <p class="text-2xl font-semibold text-gray-400">なし</p>
-                                @endif
-                            </div>
-                        </div>
-
-                        <!-- 睡眠統計 -->
-                        <div class="text-center">
-                            <div class="bg-green-50 rounded-lg p-4">
-                                <h4 class="text-sm font-medium text-green-900 mb-2">平均睡眠時間</h4>
-                                @if ($this->statistics['sleep_avg'])
-                                    @php
-                                        $avgSleep = $this->statistics['sleep_avg'];
-                                        $totalMinutes = round($avgSleep * 60);
-                                        $hours = floor($totalMinutes / 60);
-                                        $minutes = $totalMinutes % 60;
-                                    @endphp
-                                    <p class="text-2xl font-semibold text-green-600">
-                                        {{ $hours }}時間{{ $minutes }}分</p>
-                                    <p class="text-xs text-green-700 mt-1">
-                                        最長: {{ number_format($this->statistics['sleep_max'], 1) }}h /
-                                        最短: {{ number_format($this->statistics['sleep_min'], 1) }}h
-                                    </p>
-                                @else
-                                    <p class="text-2xl font-semibold text-gray-400">なし</p>
-                                @endif
-                            </div>
-                        </div>
-
-                        <!-- 服薬遵守率 -->
-                        <div class="text-center">
-                            <div class="bg-purple-50 rounded-lg p-4">
-                                <h4 class="text-sm font-medium text-purple-900 mb-2">服薬遵守率</h4>
-                                <p class="text-2xl font-semibold text-purple-600">
-                                    {{ $this->statistics['adherence_rate'] }}%</p>
-                                <p class="text-xs text-purple-700 mt-1">定時薬のみ</p>
-                            </div>
-                        </div>
-
-                        <!-- 記録日数 -->
-                        <div class="text-center">
-                            <div class="bg-orange-50 rounded-lg p-4">
-                                <h4 class="text-sm font-medium text-orange-900 mb-2">記録日数</h4>
-                                <p class="text-2xl font-semibold text-orange-600">
-                                    {{ $this->statistics['total_entries'] }}日</p>
-                                <p class="text-xs text-orange-700 mt-1">{{ $this->statistics['period_days'] }}日中</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ユーザー状態要約 -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 bg-white border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        状態要約
-                    </h3>
-                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 border border-indigo-200">
-                        <div class="flex items-start">
-                            <div class="flex-shrink-0">
-                                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                            </div>
-                            <div class="ml-4 flex-1">
-                                <h4 class="text-base font-medium text-gray-900 mb-2">
-                                    {{ $selectedPeriod === 'custom' ? 'カスタム期間' : $this->periodTabs[$selectedPeriod] }}の総合分析
-                                </h4>
-                                <p class="text-gray-700 leading-relaxed">
-                                    {{ $this->userSummary }}
-                                </p>
-                                <div class="mt-3 text-xs text-gray-500">
-                                    ※ この要約は記録された気分・睡眠・服薬データと自由日記の内容を分析して生成されています
+                                状態要約
+                            </h3>
+                            <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 border border-indigo-200 flex-grow">
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                            <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4 flex-1">
+                                        <h4 class="text-base font-medium text-gray-900 mb-2">
+                                            {{ $selectedPeriod === 'custom' ? 'カスタム期間' : $this->periodTabs[$selectedPeriod] }}の総合分析
+                                        </h4>
+                                        <p class="text-gray-700 leading-relaxed">
+                                            {{ $this->userSummary }}
+                                        </p>
+                                        <div class="mt-3 text-xs text-gray-500">
+                                            ※ この要約は記録された気分・睡眠・服薬データと自由日記の内容を分析して生成されています
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
+                    </section>
+
+                </div><!-- /.print-right -->
+
+            </div><!-- /.print-container -->
+
         </div>
     </div>
 
@@ -1019,6 +1036,25 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
         initChart();
     </script>
 
+    <!-- 印刷用JavaScript -->
+    <script>
+        function printReport() {
+            console.log('Print report triggered');
+            if (window.moodSleepChart) {
+                console.log('Chart exists, preparing for print');
+                window.moodSleepChart.resize();
+                window.moodSleepChart.update('none'); // アニメーションなしで更新
+                setTimeout(() => {
+                    console.log('Opening print dialog');
+                    window.print();
+                }, 800); // 待機時間を延長
+            } else {
+                console.log('No chart found, printing directly');
+                window.print();
+            }
+        }
+    </script>
+
     <!-- 印刷用スタイル -->
     <style>
         @media print {
@@ -1119,10 +1155,13 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
 
             .print-right {
                 flex: 0.5;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
             }
 
             #chart-section {
-                height: 70%;
+                height: 100%; /* 左カラムはグラフのみなので高さを100%に */
                 overflow: visible !important;
             }
 
@@ -1134,11 +1173,11 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
             }
 
             #statistics-section {
-                height: 30%;
+                 /* 右カラムに移動したので高さの指定は不要（コンテンツに応じる） */
             }
 
             #summary-section {
-                height: 100%;
+                flex-grow: 1; /* 残りのスペースを埋める */
             }
 
             canvas {
@@ -1155,7 +1194,7 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
             }
 
             .grid-cols-4 {
-                grid-template-columns: repeat(4, 1fr) !important;
+                grid-template-columns: repeat(2, 1fr) !important; /* 右カラムの幅に合わせて2列に調整 */
             }
 
             /* フォントサイズ調整 */
@@ -1191,6 +1230,14 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
                 line-height: 1.3 !important;
                 -webkit-line-clamp: 10 !important;
             }
+            
+            /* ▼▼▼ 追加したCSSルール ▼▼▼ */
+            #summary-section .text-gray-700 {
+                font-size: 10px !important; /* 要約の文字を少し大きくする */
+                line-height: 1.4 !important;
+            }
+            /* ▲▲▲ 追加ここまで ▲▲▲ */
+
 
             /* 背景とボーダーを削除 */
             * {
@@ -1238,23 +1285,4 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
             display: none;
         }
     </style>
-
-    <!-- 印刷用JavaScript -->
-    <script>
-        function printReport() {
-            console.log('Print report triggered');
-            if (window.moodSleepChart) {
-                console.log('Chart exists, preparing for print');
-                window.moodSleepChart.resize();
-                window.moodSleepChart.update('none'); // アニメーションなしで更新
-                setTimeout(() => {
-                    console.log('Opening print dialog');
-                    window.print();
-                }, 800); // 待機時間を延長
-            } else {
-                console.log('No chart found, printing directly');
-                window.print();
-            }
-        }
-    </script>
 </div>
