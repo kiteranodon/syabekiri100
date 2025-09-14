@@ -343,16 +343,29 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
 ?>
 
 <div>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('レポート') }}
-        </h2>
-    </x-slot>
+    <!-- ページヘッダー -->
+    <div class="bg-white shadow-sm border-b border-gray-200 mb-6 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-6">
+                <h1 class="text-2xl font-bold text-gray-900">
+                    {{ __('レポート') }}
+                </h1>
+                <button onclick="printReport()"
+                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    印刷
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <div class="py-12">
+    <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <!-- 期間選択（詳細設定） -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6 no-print">
                 <div class="p-6 bg-white border-b border-gray-200">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900">期間設定</h3>
@@ -387,7 +400,7 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6 bg-white border-b border-gray-200">
                     <!-- 期間選択タブ -->
-                    <div class="flex flex-wrap justify-center gap-1 mb-6">
+                    <div class="flex flex-wrap justify-center gap-1 mb-6 no-print">
                         @foreach ($this->periodTabs as $key => $label)
                             <button wire:click="setPeriod('{{ $key }}')" wire:loading.attr="disabled"
                                 wire:loading.class="opacity-50 cursor-not-allowed" wire:target="setPeriod"
@@ -1004,5 +1017,244 @@ $generateSummary = function ($periodName, $statistics, $moodTrend, $sleepPattern
 
         // 初期化実行
         initChart();
+    </script>
+
+    <!-- 印刷用スタイル -->
+    <style>
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 5mm 8mm;
+            }
+
+            html,
+            body {
+                font-size: 11px !important;
+                line-height: 1.3 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden;
+            }
+
+            /* サイドバーとナビゲーションを隠す */
+            .no-print,
+            nav,
+            aside,
+            header,
+            .sidebar,
+            [role="navigation"],
+            .navigation,
+            .main-sidebar,
+            .navbar-nav,
+            .sidebar-dark-primary,
+            .main-header,
+            .user-panel,
+            .brand-link,
+            .min-h-screen>div:first-child {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                width: 0 !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: absolute !important;
+                left: -9999px !important;
+                top: -9999px !important;
+            }
+
+            /* メインコンテンツのリセット */
+            body,
+            .wrapper,
+            .content-wrapper,
+            .main-content,
+            .container,
+            main,
+            #app {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                transform: translateX(0) !important;
+                position: static !important;
+            }
+
+            /* 印刷対象の要素を表示 */
+            .print-only,
+            .print-container,
+            .print-left,
+            .print-right,
+            #chart-section,
+            #statistics-section,
+            #summary-section,
+            html,
+            body,
+            main,
+            .main,
+            .content,
+            .py-12,
+            .max-w-7xl,
+            .mx-auto {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                position: static !important;
+                width: auto !important;
+                height: auto !important;
+            }
+
+            .print-container {
+                display: flex !important;
+                max-height: 190mm;
+                overflow: hidden;
+                gap: 8px;
+            }
+
+            .print-left {
+                display: flex !important;
+                flex: 1.5;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .print-right {
+                flex: 0.5;
+            }
+
+            #chart-section {
+                height: 70%;
+                overflow: visible !important;
+            }
+
+            #moodSleepChart {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                max-height: 120mm;
+            }
+
+            #statistics-section {
+                height: 30%;
+            }
+
+            #summary-section {
+                height: 100%;
+            }
+
+            canvas {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .grid,
+            .grid-cols-4 {
+                display: grid !important;
+            }
+
+            .grid-cols-4 {
+                grid-template-columns: repeat(4, 1fr) !important;
+            }
+
+            /* フォントサイズ調整 */
+            .text-2xl {
+                font-size: 12px !important;
+            }
+
+            .text-lg {
+                font-size: 10px !important;
+            }
+
+            .text-sm {
+                font-size: 8px !important;
+            }
+
+            .text-xs {
+                font-size: 7px !important;
+            }
+
+            .text-base {
+                font-size: 9px !important;
+            }
+
+            .bg-blue-50 .text-2xl,
+            .bg-green-50 .text-2xl,
+            .bg-purple-50 .text-2xl,
+            .bg-yellow-50 .text-2xl {
+                font-size: 11px !important;
+            }
+
+            .text-gray-700 {
+                font-size: 8px !important;
+                line-height: 1.3 !important;
+                -webkit-line-clamp: 10 !important;
+            }
+
+            /* 背景とボーダーを削除 */
+            * {
+                background: white !important;
+                box-shadow: none !important;
+                page-break-inside: avoid !important;
+                page-break-before: avoid !important;
+                page-break-after: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            /* 余白調整 */
+            .max-w-7xl,
+            .mx-auto,
+            .px-6,
+            .py-12 {
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .mb-6,
+            .p-6,
+            .gap-6 {
+                margin-bottom: 2px !important;
+                padding: 2px !important;
+                gap: 2px !important;
+            }
+
+            h2,
+            h3,
+            h4 {
+                font-size: 10px !important;
+                margin: 2px 0 !important;
+            }
+
+            /* 印刷専用タイトル */
+            .print-only {
+                display: block !important;
+            }
+        }
+
+        /* 通常時は印刷専用要素を隠す */
+        .print-only {
+            display: none;
+        }
+    </style>
+
+    <!-- 印刷用JavaScript -->
+    <script>
+        function printReport() {
+            console.log('Print report triggered');
+            if (window.moodSleepChart) {
+                console.log('Chart exists, preparing for print');
+                window.moodSleepChart.resize();
+                window.moodSleepChart.update('none'); // アニメーションなしで更新
+                setTimeout(() => {
+                    console.log('Opening print dialog');
+                    window.print();
+                }, 800); // 待機時間を延長
+            } else {
+                console.log('No chart found, printing directly');
+                window.print();
+            }
+        }
     </script>
 </div>
